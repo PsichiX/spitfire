@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use std::{ops::Range, vec::Drain};
 
-#[derive(Copy, Clone, Pod, Zeroable)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct SimpleVertex {
     pub position: [f32; 3],
@@ -9,7 +9,8 @@ pub struct SimpleVertex {
     pub uv: [f32; 2],
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
 pub struct Triangle {
     pub a: u32,
     pub b: u32,
@@ -31,33 +32,14 @@ impl Triangle {
     }
 }
 
-pub trait Batch {
-    type Error;
-
-    fn begin(self) -> Result<(), Self::Error>;
-    fn end(self) -> Result<(), Self::Error>;
-}
-
-impl Batch for () {
-    type Error = ();
-
-    fn begin(self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
-    fn end(self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-}
-
-pub struct VertexStream<V: Pod, B: Batch> {
+pub struct VertexStream<V: Pod, B> {
     vertices: Vec<V>,
     triangles: Vec<Triangle>,
     batches: Vec<(B, Range<usize>)>,
     resize_count: usize,
 }
 
-impl<V: Pod, B: Batch> Default for VertexStream<V, B> {
+impl<V: Pod, B> Default for VertexStream<V, B> {
     fn default() -> Self {
         Self {
             vertices: Vec::with_capacity(1024),
@@ -68,7 +50,7 @@ impl<V: Pod, B: Batch> Default for VertexStream<V, B> {
     }
 }
 
-impl<V: Pod, B: Batch> VertexStream<V, B> {
+impl<V: Pod, B> VertexStream<V, B> {
     pub fn new(resize_count: usize) -> Self {
         Self {
             vertices: Vec::with_capacity(resize_count),
@@ -145,14 +127,10 @@ impl<V: Pod, B: Batch> VertexStream<V, B> {
         }
     }
 
-    pub fn with_batch<R>(&mut self, data: B, mut f: impl FnMut(&mut Self) -> R) -> R {
-        self.batch(data);
-        let result = f(self);
-        self.batch_end();
-        result
-    }
-
-    pub fn render<R: Renderer<V, B>>(&mut self, renderer: &mut R) -> Result<(), R::Error> {
+    pub fn render<R: VertexStreamRenderer<V, B>>(
+        &mut self,
+        renderer: &mut R,
+    ) -> Result<(), R::Error> {
         self.batch_end();
         renderer.render(self)
     }
@@ -169,6 +147,7 @@ impl<V: Pod, B: Batch> VertexStream<V, B> {
         &self.batches
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn drain(&mut self) -> (Drain<V>, Drain<Triangle>, Drain<(B, Range<usize>)>) {
         self.batch_end();
         (
@@ -188,13 +167,13 @@ impl<V: Pod, B: Batch> VertexStream<V, B> {
     }
 }
 
-pub trait Renderer<V: Pod, B: Batch> {
+pub trait VertexStreamRenderer<V: Pod, B> {
     type Error;
 
     fn render(&mut self, stream: &mut VertexStream<V, B>) -> Result<(), Self::Error>;
 }
 
-impl<V: Pod, B: Batch> Renderer<V, B> for () {
+impl<V: Pod, B> VertexStreamRenderer<V, B> for () {
     type Error = ();
 
     fn render(&mut self, _: &mut VertexStream<V, B>) -> Result<(), Self::Error> {

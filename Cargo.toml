@@ -1,2 +1,2 @@
 [workspace]
-members = ["platform/core", "platform/_", "backends/glow"]
+members = ["crates/*"]
