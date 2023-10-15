@@ -37,3 +37,5 @@ publish:
     cargo publish --no-verify --manifest-path ./platform/core/Cargo.toml
     sleep 1
     cargo publish --no-verify --manifest-path ./backends/glow/Cargo.toml
+    sleep 1
+    cargo publish --no-verify --manifest-path ./platform/_/Cargo.toml

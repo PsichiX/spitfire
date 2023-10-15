@@ -1,0 +1,18 @@
+[package]
+name = "spitfire"
+version = "0.1.0"
+edition = "2021"
+authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
+description = "Spitfire toolset"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/PsichiX/spitfire"
+repository = "https://github.com/PsichiX/spitfire"
+documentation = "https://docs.rs/spitfire"
+readme = "../../README.md"
+
+[features]
+glow = ["spitfire-glow"]
+
+[dependencies]
+spitfire-core = { version = "0.1", path = "../core" }
+spitfire-glow = { version = "0.1", path = "../../backends/glow", optional = true }
