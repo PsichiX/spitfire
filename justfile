@@ -34,8 +34,8 @@ update:
     cargo update --manifest-path ./backends/glow/Cargo.toml --aggressive
   
 publish:
-    cargo publish --no-verify --manifest-path ./platform/core/Cargo.toml
+    cargo publish --no-verify --manifest-path ./crates/core/Cargo.toml
     sleep 1
-    cargo publish --no-verify --manifest-path ./backends/glow/Cargo.toml
+    cargo publish --no-verify --manifest-path ./crates/glow/Cargo.toml
     sleep 1
-    cargo publish --no-verify --manifest-path ./platform/_/Cargo.toml
+    cargo publish --no-verify --manifest-path ./crates/_/Cargo.toml
