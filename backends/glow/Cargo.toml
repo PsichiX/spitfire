@@ -2,6 +2,13 @@
 name = "spitfire-glow"
 version = "0.1.0"
 edition = "2021"
+authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
+description = "GLOW backend module for Spitfire toolset"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/PsichiX/spitfire"
+repository = "https://github.com/PsichiX/spitfire"
+documentation = "https://docs.rs/spitfire-core"
+readme = "../../README.md"
 
 [dependencies]
 spitfire-core = { version = "0.1", path = "../../platform/core" }
