@@ -32,7 +32,10 @@ list-outdated:
 update:
     cargo update --manifest-path ./platform/core/Cargo.toml --aggressive
     cargo update --manifest-path ./backends/glow/Cargo.toml --aggressive
-  
+
+example NAME="app":
+    cargo run --all-features --example {{NAME}}
+
 publish:
     cargo publish --no-verify --manifest-path ./crates/core/Cargo.toml
     sleep 1

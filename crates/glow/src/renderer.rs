@@ -1,4 +1,4 @@
-use bytemuck::{checked::cast_slice, Pod, Zeroable};
+use bytemuck::{checked::cast_slice, Pod};
 use glow::{
     Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND,
     ELEMENT_ARRAY_BUFFER, SCISSOR_TEST, STREAM_DRAW, TEXTURE0, TEXTURE_2D, TRIANGLES, UNSIGNED_INT,
@@ -8,29 +8,6 @@ use std::{borrow::Cow, collections::HashMap, marker::PhantomData, ops::Range};
 
 pub trait GlowVertexAttribs: Pod {
     const ATTRIBS: &'static [&'static str];
-}
-
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
-pub struct GlowVertex2d {
-    pub position: [f32; 2],
-    pub uv: [f32; 2],
-}
-
-impl GlowVertexAttribs for GlowVertex2d {
-    const ATTRIBS: &'static [&'static str] = &["a_position", "a_uv"];
-}
-
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
-pub struct GlowVertex3d {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
-    pub uv: [f32; 2],
-}
-
-impl GlowVertexAttribs for GlowVertex3d {
-    const ATTRIBS: &'static [&'static str] = &["a_position", "a_normal", "a_uv"];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -223,7 +200,7 @@ impl Drop for GlowState {
 }
 
 impl GlowState {
-    pub fn dispose(mut self, context: &Context) {
+    pub fn dispose(&mut self, context: &Context) {
         if let Some(mesh) = self.mesh.take() {
             mesh.dispose(context)
         }

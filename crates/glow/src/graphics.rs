@@ -1,21 +1,56 @@
 use crate::renderer::{GlowBatch, GlowRenderer, GlowState, GlowUniformValue, GlowVertexAttribs};
+use bytemuck::{Pod, Zeroable};
 use glow::{
     Context, HasContext, Program as GlowProgram, Shader as GlowShader, Texture as GlowTexture,
-    FRAGMENT_SHADER, RGBA, TEXTURE_2D, UNSIGNED_BYTE, VERTEX_SHADER,
+    BLEND, COLOR_BUFFER_BIT, FRAGMENT_SHADER, RGBA, SCISSOR_TEST, TEXTURE_2D, UNSIGNED_BYTE,
+    VERTEX_SHADER,
 };
 use spitfire_core::{VertexStream, VertexStreamRenderer};
 use std::{borrow::Cow, cell::Cell, collections::HashMap, rc::Rc};
 use vek::{FrustumPlanes, Mat4, Rect, Transform, Vec2};
 
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct Vertex2d {
+    pub position: [f32; 2],
+    pub uv: [f32; 2],
+    pub color: [f32; 4],
+}
+
+impl GlowVertexAttribs for Vertex2d {
+    const ATTRIBS: &'static [&'static str] = &["a_position", "a_uv"];
+}
+
+#[derive(Debug, Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct Vertex3d {
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
+    pub uv: [f32; 2],
+    pub color: [f32; 4],
+}
+
+impl GlowVertexAttribs for Vertex3d {
+    const ATTRIBS: &'static [&'static str] = &["a_position", "a_normal", "a_uv"];
+}
+
 pub struct Graphics<V: GlowVertexAttribs> {
+    pub color: [f32; 3],
     pub stream: VertexStream<V, GraphicsBatch>,
     state: GlowState,
     context: Rc<Context>,
 }
 
+impl<V: GlowVertexAttribs> Drop for Graphics<V> {
+    fn drop(&mut self) {
+        self.state.dispose(&self.context);
+    }
+}
+
 impl<V: GlowVertexAttribs> Graphics<V> {
     pub fn new(context: Context) -> Self {
         Self {
+            color: [1.0, 1.0, 1.0],
             stream: Default::default(),
             state: Default::default(),
             context: Rc::new(context),
@@ -70,7 +105,16 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         }
     }
 
-    pub fn render_stream<const TN: usize>(&mut self) -> Result<(), String> {
+    pub fn draw<const TN: usize>(&mut self) -> Result<(), String> {
+        let [r, g, b] = self.color;
+        unsafe {
+            self.context.bind_vertex_array(None);
+            self.context.use_program(None);
+            self.context.disable(BLEND);
+            self.context.disable(SCISSOR_TEST);
+            self.context.clear_color(r, g, b, 1.0);
+            self.context.clear(COLOR_BUFFER_BIT);
+        }
         let mut renderer = GlowRenderer::<GraphicsBatch, TN>::new(&self.context, &mut self.state);
         renderer.render(&mut self.stream)?;
         self.stream.clear();
@@ -211,6 +255,38 @@ pub struct Shader {
 }
 
 impl Shader {
+    pub const DEFAULT_VERTEX_2D: &str = r#"#version 300 es
+    in vec2 a_position;
+    in vec4 a_color;
+    out vec4 v_color;
+    uniform mat4 u_projection_view;
+
+    void main() {
+        gl_Position = u_projection_view * vec4(a_position, 0.0, 1.0);
+        v_color = a_color;
+    }
+    "#;
+    pub const DEFAULT_VERTEX_3D: &str = r#"#version 300 es
+    in vec3 a_position;
+    in vec4 a_color;
+    out vec4 v_color;
+    uniform mat4 u_projection_view;
+
+    void main() {
+        gl_Position = u_projection_view * vec4(a_position, 1.0);
+        v_color = a_color;
+    }
+    "#;
+    pub const DEFAULT_FRAGMENT: &str = r#"#version 300 es
+    precision highp float;
+    in vec4 v_color;
+    out vec4 o_color;
+
+    void main() {
+        o_color = v_color;
+    }
+    "#;
+
     pub fn handle(&self) -> GlowProgram {
         self.inner.program
     }
