@@ -1,12 +1,23 @@
-use crate::renderer::{GlowBatch, GlowRenderer, GlowState, GlowUniformValue, GlowVertexAttribs};
+use crate::{
+    prelude::{GlowBlending, GlowTextureFiltering},
+    renderer::{
+        GlowBatch, GlowRenderer, GlowState, GlowUniformValue, GlowVertexAttrib, GlowVertexAttribs,
+    },
+};
 use bytemuck::{Pod, Zeroable};
 use glow::{
     Context, HasContext, Program as GlowProgram, Shader as GlowShader, Texture as GlowTexture,
-    BLEND, COLOR_BUFFER_BIT, FRAGMENT_SHADER, RGBA, SCISSOR_TEST, TEXTURE_2D, UNSIGNED_BYTE,
-    VERTEX_SHADER,
+    BLEND, CLAMP_TO_EDGE, COLOR_BUFFER_BIT, FRAGMENT_SHADER, NEAREST, RGBA, SCISSOR_TEST,
+    TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_S, TEXTURE_WRAP_T,
+    UNSIGNED_BYTE, VERTEX_SHADER,
 };
 use spitfire_core::{VertexStream, VertexStreamRenderer};
-use std::{borrow::Cow, cell::Cell, collections::HashMap, rc::Rc};
+use std::{
+    borrow::Cow,
+    cell::{Cell, Ref, RefCell},
+    collections::HashMap,
+    rc::Rc,
+};
 use vek::{FrustumPlanes, Mat4, Rect, Transform, Vec2};
 
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -18,7 +29,39 @@ pub struct Vertex2d {
 }
 
 impl GlowVertexAttribs for Vertex2d {
-    const ATTRIBS: &'static [&'static str] = &["a_position", "a_uv"];
+    const ATTRIBS: &'static [(&'static str, GlowVertexAttrib)] = &[
+        (
+            "a_position",
+            GlowVertexAttrib::Float {
+                channels: 2,
+                normalized: false,
+            },
+        ),
+        (
+            "a_uv",
+            GlowVertexAttrib::Float {
+                channels: 2,
+                normalized: false,
+            },
+        ),
+        (
+            "a_color",
+            GlowVertexAttrib::Float {
+                channels: 4,
+                normalized: false,
+            },
+        ),
+    ];
+}
+
+impl Default for Vertex2d {
+    fn default() -> Self {
+        Self {
+            position: Default::default(),
+            uv: Default::default(),
+            color: [1.0, 1.0, 1.0, 1.0],
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -31,34 +74,111 @@ pub struct Vertex3d {
 }
 
 impl GlowVertexAttribs for Vertex3d {
-    const ATTRIBS: &'static [&'static str] = &["a_position", "a_normal", "a_uv"];
+    const ATTRIBS: &'static [(&'static str, GlowVertexAttrib)] = &[
+        (
+            "a_position",
+            GlowVertexAttrib::Float {
+                channels: 3,
+                normalized: false,
+            },
+        ),
+        (
+            "a_normal",
+            GlowVertexAttrib::Float {
+                channels: 3,
+                normalized: false,
+            },
+        ),
+        (
+            "a_uv",
+            GlowVertexAttrib::Float {
+                channels: 2,
+                normalized: false,
+            },
+        ),
+        (
+            "a_color",
+            GlowVertexAttrib::Float {
+                channels: 4,
+                normalized: false,
+            },
+        ),
+    ];
+}
+
+impl Default for Vertex3d {
+    fn default() -> Self {
+        Self {
+            position: Default::default(),
+            normal: [0.0, 0.0, 1.0],
+            uv: Default::default(),
+            color: [1.0, 1.0, 1.0, 1.0],
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MaybeContext(Rc<RefCell<(Context, bool)>>);
+
+impl MaybeContext {
+    pub fn get(&self) -> Option<Ref<Context>> {
+        let access = self.0.borrow();
+        if access.1 {
+            Some(Ref::map(access, |access| &access.0))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+struct StrongContext(MaybeContext);
+
+impl Drop for StrongContext {
+    fn drop(&mut self) {
+        self.0 .0.borrow_mut().1 = false;
+    }
+}
+
+impl StrongContext {
+    fn get(&self) -> Option<Ref<Context>> {
+        self.0.get()
+    }
+
+    fn new(context: Context) -> Self {
+        Self(MaybeContext(Rc::new(RefCell::new((context, true)))))
+    }
 }
 
 pub struct Graphics<V: GlowVertexAttribs> {
+    pub main_camera: Camera,
     pub color: [f32; 3],
     pub stream: VertexStream<V, GraphicsBatch>,
     state: GlowState,
-    context: Rc<Context>,
+    context: StrongContext,
 }
 
 impl<V: GlowVertexAttribs> Drop for Graphics<V> {
     fn drop(&mut self) {
-        self.state.dispose(&self.context);
+        if let Some(context) = self.context.get() {
+            self.state.dispose(&context);
+        }
     }
 }
 
 impl<V: GlowVertexAttribs> Graphics<V> {
     pub fn new(context: Context) -> Self {
         Self {
+            main_camera: Default::default(),
             color: [1.0, 1.0, 1.0],
             stream: Default::default(),
             state: Default::default(),
-            context: Rc::new(context),
+            context: StrongContext::new(context),
         }
     }
 
-    pub fn context(&self) -> &Context {
-        &self.context
+    pub fn context(&self) -> Option<Ref<Context>> {
+        self.context.get()
     }
 
     pub fn texture(
@@ -69,72 +189,104 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         generate_mipmaps: bool,
     ) -> Result<Texture, String> {
         unsafe {
-            let texture = self.context.create_texture()?;
-            let mut result = Texture {
-                inner: Rc::new(TextureInner {
-                    context: self.context.clone(),
-                    texture,
-                    size: Cell::new((0, 0)),
-                }),
-            };
-            result.upload(width, height, data, generate_mipmaps);
-            Ok(result)
+            if let Some(context) = self.context.get() {
+                let texture = context.create_texture()?;
+                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_WRAP_S, CLAMP_TO_EDGE as _);
+                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_WRAP_T, CLAMP_TO_EDGE as _);
+                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as _);
+                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as _);
+                let mut result = Texture {
+                    inner: Rc::new(TextureInner {
+                        context: self.context.0.clone(),
+                        texture,
+                        size: Cell::new((0, 0)),
+                    }),
+                };
+                result.upload(width, height, data, generate_mipmaps);
+                Ok(result)
+            } else {
+                Err("Invalid context".to_owned())
+            }
         }
     }
 
     pub fn shader(&self, vertex: &str, fragment: &str) -> Result<Shader, String> {
         unsafe {
-            let vertex_shader = self.context.create_shader(VERTEX_SHADER)?;
-            let fragment_shader = self.context.create_shader(FRAGMENT_SHADER)?;
-            let program = self.context.create_program()?;
-            self.context.shader_source(vertex_shader, vertex);
-            self.context.compile_shader(vertex_shader);
-            self.context.shader_source(fragment_shader, fragment);
-            self.context.compile_shader(fragment_shader);
-            self.context.attach_shader(program, vertex_shader);
-            self.context.attach_shader(program, fragment_shader);
-            self.context.link_program(program);
-            Ok(Shader {
-                inner: Rc::new(ShaderInner {
-                    context: self.context.clone(),
-                    program,
-                    vertex_shader,
-                    fragment_shader,
-                }),
-            })
+            if let Some(context) = self.context.get() {
+                let vertex_shader = context.create_shader(VERTEX_SHADER)?;
+                let fragment_shader = context.create_shader(FRAGMENT_SHADER)?;
+                let program = context.create_program()?;
+                context.shader_source(vertex_shader, vertex);
+                context.compile_shader(vertex_shader);
+                if !context.get_shader_compile_status(vertex_shader) {
+                    return Err(context.get_shader_info_log(vertex_shader));
+                }
+                context.shader_source(fragment_shader, fragment);
+                context.compile_shader(fragment_shader);
+                if !context.get_shader_compile_status(fragment_shader) {
+                    return Err(context.get_shader_info_log(fragment_shader));
+                }
+                context.attach_shader(program, vertex_shader);
+                context.attach_shader(program, fragment_shader);
+                context.link_program(program);
+                if !context.get_program_link_status(program) {
+                    return Err(context.get_program_info_log(program));
+                }
+                Ok(Shader {
+                    inner: Rc::new(ShaderInner {
+                        context: self.context.0.clone(),
+                        program,
+                        vertex_shader,
+                        fragment_shader,
+                    }),
+                })
+            } else {
+                Err("Invalid context".to_owned())
+            }
+        }
+    }
+
+    pub fn prepare_frame(&self) {
+        unsafe {
+            if let Some(context) = self.context.get() {
+                let [r, g, b] = self.color;
+                context.bind_vertex_array(None);
+                context.use_program(None);
+                context.disable(BLEND);
+                context.disable(SCISSOR_TEST);
+                context.clear_color(r, g, b, 1.0);
+                context.clear(COLOR_BUFFER_BIT);
+            }
         }
     }
 
     pub fn draw<const TN: usize>(&mut self) -> Result<(), String> {
-        let [r, g, b] = self.color;
-        unsafe {
-            self.context.bind_vertex_array(None);
-            self.context.use_program(None);
-            self.context.disable(BLEND);
-            self.context.disable(SCISSOR_TEST);
-            self.context.clear_color(r, g, b, 1.0);
-            self.context.clear(COLOR_BUFFER_BIT);
+        if let Some(context) = self.context.get() {
+            let mut renderer = GlowRenderer::<GraphicsBatch, TN>::new(&context, &mut self.state);
+            renderer.render(&mut self.stream)?;
+            self.stream.clear();
+            Ok(())
+        } else {
+            Err("Invalid context".to_owned())
         }
-        let mut renderer = GlowRenderer::<GraphicsBatch, TN>::new(&self.context, &mut self.state);
-        renderer.render(&mut self.stream)?;
-        self.stream.clear();
-        Ok(())
     }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Camera {
+    pub screen_alignment: Vec2<f32>,
     pub viewport_size: Vec2<f32>,
     pub transform: Transform<f32, f32, f32>,
 }
 
 impl Camera {
     pub fn projection_matrix(&self) -> Mat4<f32> {
+        let offset = self.viewport_size * -self.screen_alignment;
         Mat4::orthographic_without_depth_planes(FrustumPlanes {
-            left: 0.0,
-            right: self.viewport_size.x,
-            top: 0.0,
-            bottom: self.viewport_size.y,
+            left: offset.x,
+            right: self.viewport_size.x + offset.x,
+            top: offset.y,
+            bottom: self.viewport_size.y + offset.y,
             near: -1.0,
             far: 1.0,
         })
@@ -149,12 +301,12 @@ impl Camera {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct GraphicsBatch {
     pub shader: Option<(Shader, HashMap<Cow<'static, str>, GlowUniformValue>)>,
-    pub textures: Vec<Option<Texture>>,
+    pub textures: Vec<Option<(Texture, GlowTextureFiltering)>>,
     /// (source, destination)?
-    pub blending: Option<(u32, u32)>,
+    pub blending: GlowBlending,
     pub scissor: Option<Rect<i32, i32>>,
 }
 
@@ -166,18 +318,22 @@ impl<const TN: usize> Into<GlowBatch<TN>> for GraphicsBatch {
             textures: {
                 let mut result = [None; TN];
                 for (from, to) in self.textures.into_iter().zip(result.iter_mut()) {
-                    *to = from.map(|v| (v.handle(), TEXTURE_2D));
+                    *to = from.map(|(v, f)| {
+                        let (min, mag) = f.into_gl();
+                        (v.handle(), TEXTURE_2D, min, mag)
+                    });
                 }
                 result
             },
-            blending: self.blending,
+            blending: self.blending.into_gl(),
             scissor: self.scissor.map(|v| [v.x, v.y, v.w, v.h]),
         }
     }
 }
 
+#[derive(Debug)]
 struct TextureInner {
-    context: Rc<Context>,
+    context: MaybeContext,
     texture: GlowTexture,
     size: Cell<(u32, u32)>,
 }
@@ -185,12 +341,14 @@ struct TextureInner {
 impl Drop for TextureInner {
     fn drop(&mut self) {
         unsafe {
-            self.context.delete_texture(self.texture);
+            if let Some(context) = self.context.get() {
+                context.delete_texture(self.texture);
+            }
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Texture {
     inner: Rc<TextureInner>,
 }
@@ -208,32 +366,33 @@ impl Texture {
         self.inner.size.get().1
     }
 
-    pub fn upload(&mut self, width: u32, height: u32, data: &[u8], generaet_mipmaps: bool) {
+    pub fn upload(&mut self, width: u32, height: u32, data: &[u8], generate_mipmaps: bool) {
         unsafe {
-            self.inner
-                .context
-                .bind_texture(TEXTURE_2D, Some(self.inner.texture));
-            self.inner.context.tex_image_2d(
-                TEXTURE_2D,
-                0,
-                RGBA as _,
-                width as _,
-                height as _,
-                0,
-                RGBA,
-                UNSIGNED_BYTE,
-                Some(data),
-            );
-            if generaet_mipmaps {
-                self.inner.context.generate_mipmap(TEXTURE_2D);
+            if let Some(context) = self.inner.context.get() {
+                context.bind_texture(TEXTURE_2D, Some(self.inner.texture));
+                context.tex_image_2d(
+                    TEXTURE_2D,
+                    0,
+                    RGBA as _,
+                    width as _,
+                    height as _,
+                    0,
+                    RGBA,
+                    UNSIGNED_BYTE,
+                    Some(data),
+                );
+                if generate_mipmaps {
+                    context.generate_mipmap(TEXTURE_2D);
+                }
+                self.inner.size.set((width, height));
             }
-            self.inner.size.set((width, height));
         }
     }
 }
 
+#[derive(Debug)]
 struct ShaderInner {
-    context: Rc<Context>,
+    context: MaybeContext,
     program: GlowProgram,
     vertex_shader: GlowShader,
     fragment_shader: GlowShader,
@@ -242,22 +401,56 @@ struct ShaderInner {
 impl Drop for ShaderInner {
     fn drop(&mut self) {
         unsafe {
-            self.context.delete_program(self.program);
-            self.context.delete_shader(self.vertex_shader);
-            self.context.delete_shader(self.fragment_shader);
+            if let Some(context) = self.context.get() {
+                context.delete_program(self.program);
+                context.delete_shader(self.vertex_shader);
+                context.delete_shader(self.fragment_shader);
+            }
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Shader {
     inner: Rc<ShaderInner>,
 }
 
 impl Shader {
-    pub const DEFAULT_VERTEX_2D: &str = r#"#version 300 es
-    in vec2 a_position;
-    in vec4 a_color;
+    pub const PASS_VERTEX_2D: &str = r#"#version 300 es
+    layout(location = 0) in vec2 a_position;
+    layout(location = 2) in vec4 a_color;
+    out vec4 v_color;
+
+    void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+        v_color = a_color;
+    }
+    "#;
+
+    pub const PASS_VERTEX_3D: &str = r#"#version 300 es
+    layout(location = 0) in vec3 a_position;
+    layout(location = 3) in vec4 a_color;
+    out vec4 v_color;
+
+    void main() {
+        gl_Position = vec4(a_position, 1.0);
+        v_color = a_color;
+    }
+    "#;
+
+    pub const PASS_FRAGMENT: &str = r#"#version 300 es
+    precision highp float;
+    in vec4 v_color;
+    out vec4 o_color;
+
+    void main() {
+        o_color = v_color;
+    }
+    "#;
+
+    pub const COLORED_VERTEX_2D: &str = r#"#version 300 es
+    layout(location = 0) in vec2 a_position;
+    layout(location = 2) in vec4 a_color;
     out vec4 v_color;
     uniform mat4 u_projection_view;
 
@@ -266,9 +459,10 @@ impl Shader {
         v_color = a_color;
     }
     "#;
-    pub const DEFAULT_VERTEX_3D: &str = r#"#version 300 es
-    in vec3 a_position;
-    in vec4 a_color;
+
+    pub const COLORED_VERTEX_3D: &str = r#"#version 300 es
+    layout(location = 0) in vec3 a_position;
+    layout(location = 3) in vec4 a_color;
     out vec4 v_color;
     uniform mat4 u_projection_view;
 
@@ -277,13 +471,46 @@ impl Shader {
         v_color = a_color;
     }
     "#;
-    pub const DEFAULT_FRAGMENT: &str = r#"#version 300 es
-    precision highp float;
-    in vec4 v_color;
-    out vec4 o_color;
+
+    pub const TEXTURED_VERTEX_2D: &str = r#"#version 300 es
+    layout(location = 0) in vec2 a_position;
+    layout(location = 1) in vec2 a_uv;
+    layout(location = 2) in vec4 a_color;
+    out vec4 v_color;
+    out vec2 v_uv;
+    uniform mat4 u_projection_view;
 
     void main() {
-        o_color = v_color;
+        gl_Position = u_projection_view * vec4(a_position, 0.0, 1.0);
+        v_color = a_color;
+        v_uv = a_uv;
+    }
+    "#;
+
+    pub const TEXTURED_VERTEX_3D: &str = r#"#version 300 es
+    layout(location = 0) in vec3 a_position;
+    layout(location = 2) in vec2 a_uv;
+    layout(location = 3) in vec4 a_color;
+    out vec4 v_color;
+    out vec2 v_uv;
+    uniform mat4 u_projection_view;
+
+    void main() {
+        gl_Position = u_projection_view * vec4(a_position, 1.0);
+        v_color = a_color;
+        v_uv = a_uv;
+    }
+    "#;
+
+    pub const TEXTURED_FRAGMENT: &str = r#"#version 300 es
+    precision highp float;
+    in vec4 v_color;
+    in vec2 v_uv;
+    out vec4 o_color;
+    uniform sampler2D u_image;
+
+    void main() {
+        o_color = texture(u_image, v_uv) * v_color;
     }
     "#;
 

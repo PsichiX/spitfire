@@ -1,13 +1,30 @@
 use bytemuck::{checked::cast_slice, Pod};
 use glow::{
-    Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND,
-    ELEMENT_ARRAY_BUFFER, SCISSOR_TEST, STREAM_DRAW, TEXTURE0, TEXTURE_2D, TRIANGLES, UNSIGNED_INT,
+    Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND, DST_COLOR,
+    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, LINEAR_MIPMAP_LINEAR, NEAREST, ONE,
+    ONE_MINUS_SRC_ALPHA, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D,
+    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TRIANGLES, UNSIGNED_INT, ZERO,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, ops::Range};
 
+#[derive(Clone, Copy)]
+pub enum GlowVertexAttrib {
+    Float { channels: u8, normalized: bool },
+    Integer { channels: u8 },
+}
+
+impl GlowVertexAttrib {
+    pub fn channels(&self) -> u8 {
+        match self {
+            Self::Float { channels, .. } => *channels,
+            Self::Integer { channels } => *channels,
+        }
+    }
+}
+
 pub trait GlowVertexAttribs: Pod {
-    const ATTRIBS: &'static [&'static str];
+    const ATTRIBS: &'static [(&'static str, GlowVertexAttrib)];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -25,11 +42,49 @@ pub enum GlowUniformValue {
     I4([i32; 4]),
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum GlowBlending {
+    #[default]
+    None,
+    Alpha,
+    Multiply,
+    Additive,
+}
+
+impl GlowBlending {
+    pub fn into_gl(self) -> Option<(u32, u32)> {
+        match self {
+            Self::None => None,
+            Self::Alpha => Some((SRC_ALPHA, ONE_MINUS_SRC_ALPHA)),
+            Self::Multiply => Some((DST_COLOR, ZERO)),
+            Self::Additive => Some((ONE, ONE)),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum GlowTextureFiltering {
+    #[default]
+    Nearest,
+    Linear,
+    Bilinear,
+}
+
+impl GlowTextureFiltering {
+    pub fn into_gl(self) -> (i32, i32) {
+        match self {
+            Self::Nearest => (NEAREST as _, NEAREST as _),
+            Self::Linear => (LINEAR as _, LINEAR as _),
+            Self::Bilinear => (LINEAR_MIPMAP_LINEAR as _, LINEAR as _),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct GlowBatch<const TN: usize> {
     pub shader_program: Option<(Program, HashMap<Cow<'static, str>, GlowUniformValue>)>,
-    /// [(texture object, texture target)?]
-    pub textures: [Option<(Texture, u32)>; TN],
+    /// [(texture object, texture target, min filter, mag filter)?]
+    pub textures: [Option<(Texture, u32, i32, i32)>; TN],
     /// (source, destination)?
     pub blending: Option<(u32, u32)>,
     /// [x, y, width, height]?
@@ -50,65 +105,52 @@ impl<const TN: usize> Default for GlowBatch<TN> {
 impl<const TN: usize> GlowBatch<TN> {
     pub fn draw<V: GlowVertexAttribs>(&self, context: &Context, range: Range<usize>, prev: &Self) {
         unsafe {
-            if self.shader_program != prev.shader_program {
-                if let Some((program, uniforms)) = &self.shader_program {
+            if let Some((program, uniforms)) = &self.shader_program {
+                if prev
+                    .shader_program
+                    .as_ref()
+                    .map(|(prev, _)| program != prev)
+                    .unwrap_or(true)
+                {
                     context.use_program(Some(*program));
-                    for (name, value) in uniforms {
-                        let location = context.get_uniform_location(*program, name.as_ref());
-                        if let Some(location) = location {
-                            match value {
-                                GlowUniformValue::F1(value) => {
-                                    context.uniform_1_f32(Some(&location), *value);
-                                }
-                                GlowUniformValue::F2(value) => {
-                                    context.uniform_2_f32_slice(Some(&location), value);
-                                }
-                                GlowUniformValue::F3(value) => {
-                                    context.uniform_3_f32_slice(Some(&location), value);
-                                }
-                                GlowUniformValue::F4(value) => {
-                                    context.uniform_4_f32_slice(Some(&location), value);
-                                }
-                                GlowUniformValue::M2(value) => {
-                                    context.uniform_matrix_2_f32_slice(
-                                        Some(&location),
-                                        false,
-                                        value,
-                                    );
-                                }
-                                GlowUniformValue::M3(value) => {
-                                    context.uniform_matrix_3_f32_slice(
-                                        Some(&location),
-                                        false,
-                                        value,
-                                    );
-                                }
-                                GlowUniformValue::M4(value) => {
-                                    context.uniform_matrix_4_f32_slice(
-                                        Some(&location),
-                                        false,
-                                        value,
-                                    );
-                                }
-                                GlowUniformValue::I1(value) => {
-                                    context.uniform_1_i32(Some(&location), *value);
-                                }
-                                GlowUniformValue::I2(value) => {
-                                    context.uniform_2_i32_slice(Some(&location), value);
-                                }
-                                GlowUniformValue::I3(value) => {
-                                    context.uniform_3_i32_slice(Some(&location), value);
-                                }
-                                GlowUniformValue::I4(value) => {
-                                    context.uniform_4_i32_slice(Some(&location), value);
-                                }
+                }
+                for (name, value) in uniforms {
+                    let location = context.get_uniform_location(*program, name.as_ref());
+                    if let Some(location) = location {
+                        match value {
+                            GlowUniformValue::F1(value) => {
+                                context.uniform_1_f32(Some(&location), *value);
                             }
-                        }
-                    }
-                    for attribute in V::ATTRIBS {
-                        let location = context.get_attrib_location(*program, attribute);
-                        if let Some(location) = location {
-                            context.enable_vertex_attrib_array(location);
+                            GlowUniformValue::F2(value) => {
+                                context.uniform_2_f32_slice(Some(&location), value);
+                            }
+                            GlowUniformValue::F3(value) => {
+                                context.uniform_3_f32_slice(Some(&location), value);
+                            }
+                            GlowUniformValue::F4(value) => {
+                                context.uniform_4_f32_slice(Some(&location), value);
+                            }
+                            GlowUniformValue::M2(value) => {
+                                context.uniform_matrix_2_f32_slice(Some(&location), false, value);
+                            }
+                            GlowUniformValue::M3(value) => {
+                                context.uniform_matrix_3_f32_slice(Some(&location), false, value);
+                            }
+                            GlowUniformValue::M4(value) => {
+                                context.uniform_matrix_4_f32_slice(Some(&location), false, value);
+                            }
+                            GlowUniformValue::I1(value) => {
+                                context.uniform_1_i32(Some(&location), *value);
+                            }
+                            GlowUniformValue::I2(value) => {
+                                context.uniform_2_i32_slice(Some(&location), value);
+                            }
+                            GlowUniformValue::I3(value) => {
+                                context.uniform_3_i32_slice(Some(&location), value);
+                            }
+                            GlowUniformValue::I4(value) => {
+                                context.uniform_4_i32_slice(Some(&location), value);
+                            }
                         }
                     }
                 }
@@ -116,8 +158,10 @@ impl<const TN: usize> GlowBatch<TN> {
             if self.textures != prev.textures {
                 for (index, data) in self.textures.iter().copied().enumerate() {
                     context.active_texture(TEXTURE0 + index as u32);
-                    if let Some((texture, target)) = data {
+                    if let Some((texture, target, min_filter, mag_filter)) = data {
                         context.bind_texture(target, Some(texture));
+                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, min_filter);
+                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, mag_filter);
                     } else {
                         context.bind_texture(TEXTURE_2D, None);
                     }
@@ -175,13 +219,51 @@ impl GlowMesh {
         }
     }
 
-    fn upload<V: Pod>(&self, context: &Context, vertices: &[V], indices: &[Triangle]) {
+    fn upload<V: GlowVertexAttribs>(
+        &self,
+        context: &Context,
+        vertices: &[V],
+        triangles: &[Triangle],
+    ) {
         unsafe {
             context.bind_vertex_array(Some(self.vertex_array));
             context.bind_buffer(ARRAY_BUFFER, Some(self.vertex_buffer));
             context.buffer_data_u8_slice(ARRAY_BUFFER, cast_slice(vertices), STREAM_DRAW);
             context.bind_buffer(ELEMENT_ARRAY_BUFFER, Some(self.index_buffer));
-            context.buffer_data_u8_slice(ELEMENT_ARRAY_BUFFER, cast_slice(indices), STREAM_DRAW);
+            context.buffer_data_u8_slice(ELEMENT_ARRAY_BUFFER, cast_slice(triangles), STREAM_DRAW);
+            let mut offset = 0;
+            let stride = V::ATTRIBS
+                .iter()
+                .map(|(_, info)| info.channels() * 4)
+                .sum::<u8>();
+            for (location, (_, info)) in V::ATTRIBS.iter().enumerate() {
+                match info {
+                    GlowVertexAttrib::Float {
+                        channels,
+                        normalized,
+                    } => {
+                        context.vertex_attrib_pointer_f32(
+                            location as _,
+                            *channels as _,
+                            FLOAT,
+                            *normalized,
+                            stride as _,
+                            offset as _,
+                        );
+                    }
+                    GlowVertexAttrib::Integer { channels } => {
+                        context.vertex_attrib_pointer_i32(
+                            location as _,
+                            *channels as _,
+                            INT,
+                            stride as _,
+                            offset as _,
+                        );
+                    }
+                }
+                context.enable_vertex_attrib_array(location as _);
+                offset += info.channels() * 4;
+            }
         }
     }
 }

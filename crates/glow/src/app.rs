@@ -1,5 +1,5 @@
 use crate::prelude::{GlowVertexAttribs, Graphics};
-use glow::Context;
+use glow::{Context, HasContext};
 use glutin::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -9,7 +9,18 @@ use glutin::{
     ContextBuilder,
 };
 
-pub struct AppConfig {
+#[allow(unused_variables)]
+pub trait AppState<V: GlowVertexAttribs> {
+    fn on_init(&mut self, graphics: &mut Graphics<V>) {}
+
+    fn on_redraw(&mut self, graphics: &mut Graphics<V>) {}
+
+    fn on_event(&mut self, event: Event<()>) -> bool {
+        true
+    }
+}
+
+pub struct App {
     pub title: String,
     pub width: u32,
     pub height: u32,
@@ -19,7 +30,7 @@ pub struct AppConfig {
     pub color: [f32; 3],
 }
 
-impl Default for AppConfig {
+impl Default for App {
     fn default() -> Self {
         Self {
             title: "Spitfire Application".to_owned(),
@@ -33,54 +44,52 @@ impl Default for AppConfig {
     }
 }
 
-impl AppConfig {
-    pub fn build<S, V: GlowVertexAttribs>(self) -> App<S, V> {
-        App::new(self)
-    }
-}
-
-pub struct App<S, V: GlowVertexAttribs> {
-    config: AppConfig,
-    #[allow(clippy::type_complexity)]
-    on_redraw: Option<Box<dyn FnMut(&mut Graphics<V>, &mut S)>>,
-    #[allow(clippy::type_complexity)]
-    on_event: Option<Box<dyn FnMut(Event<()>, &mut S, &mut bool)>>,
-}
-
-impl<S, V: GlowVertexAttribs> App<S, V> {
-    pub fn new(config: AppConfig) -> Self {
-        Self {
-            config,
-            on_redraw: None,
-            on_event: None,
-        }
-    }
-
-    pub fn on_redraw(mut self, f: impl FnMut(&mut Graphics<V>, &mut S) + 'static) -> Self {
-        self.on_redraw = Some(Box::new(f));
+impl App {
+    pub fn title(mut self, v: impl ToString) -> Self {
+        self.title = v.to_string();
         self
     }
 
-    pub fn on_event(mut self, f: impl FnMut(Event<()>, &mut S, &mut bool) + 'static) -> Self {
-        self.on_event = Some(Box::new(f));
+    pub fn width(mut self, v: u32) -> Self {
+        self.width = v;
         self
     }
 
-    pub fn run(self, mut state: S) -> S {
+    pub fn height(mut self, v: u32) -> Self {
+        self.height = v;
+        self
+    }
+
+    pub fn fullscreen(mut self, v: bool) -> Self {
+        self.fullscreen = v;
+        self
+    }
+
+    pub fn vsync(mut self, v: bool) -> Self {
+        self.vsync = v;
+        self
+    }
+
+    pub fn refresh_on_event(mut self, v: bool) -> Self {
+        self.refresh_on_event = v;
+        self
+    }
+
+    pub fn color(mut self, v: impl Into<[f32; 3]>) -> Self {
+        self.color = v.into();
+        self
+    }
+
+    pub fn run<S: AppState<V>, V: GlowVertexAttribs, const TN: usize>(self, mut state: S) -> S {
         let App {
-            config,
-            mut on_redraw,
-            mut on_event,
-        } = self;
-        let AppConfig {
             title,
-            width,
-            height,
+            mut width,
+            mut height,
             fullscreen,
             vsync,
             refresh_on_event,
             color,
-        } = config;
+        } = self;
         let fullscreen = if fullscreen {
             Some(Fullscreen::Borderless(None))
         } else {
@@ -106,6 +115,7 @@ impl<S, V: GlowVertexAttribs> App<S, V> {
         };
         let mut graphics = Graphics::<V>::new(context);
         graphics.color = color;
+        state.on_init(&mut graphics);
         let mut running = true;
         while running {
             event_loop.run_return(|event, _, control_flow| {
@@ -116,17 +126,25 @@ impl<S, V: GlowVertexAttribs> App<S, V> {
                 };
                 match &event {
                     Event::MainEventsCleared => {
-                        if let Some(on_redraw) = on_redraw.as_mut() {
-                            on_redraw(&mut graphics, &mut state);
-                        } else {
-                            let _ = graphics.draw::<1>();
+                        unsafe {
+                            graphics
+                                .context()
+                                .unwrap()
+                                .viewport(0, 0, width as _, height as _);
                         }
+                        graphics.main_camera.viewport_size.x = width as _;
+                        graphics.main_camera.viewport_size.y = height as _;
+                        graphics.prepare_frame();
+                        state.on_redraw(&mut graphics);
+                        let _ = graphics.draw::<TN>();
                         let _ = context_wrapper.swap_buffers();
                         *control_flow = ControlFlow::Exit;
                     }
                     Event::WindowEvent { event, .. } => match event {
                         WindowEvent::Resized(physical_size) => {
                             context_wrapper.resize(*physical_size);
+                            width = physical_size.width;
+                            height = physical_size.height;
                         }
                         WindowEvent::CloseRequested => {
                             running = false;
@@ -135,8 +153,8 @@ impl<S, V: GlowVertexAttribs> App<S, V> {
                     },
                     _ => {}
                 }
-                if let Some(on_event) = on_event.as_mut() {
-                    on_event(event, &mut state, &mut running);
+                if !state.on_event(event) {
+                    running = false;
                 }
             });
         }
