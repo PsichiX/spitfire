@@ -250,6 +250,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         unsafe {
             if let Some(context) = self.context.get() {
                 let [r, g, b] = self.color;
+                context.bind_texture(TEXTURE_2D, None);
                 context.bind_vertex_array(None);
                 context.use_program(None);
                 context.disable(BLEND);

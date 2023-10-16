@@ -1,6 +1,8 @@
 use spitfire_glow::prelude::*;
 use std::{collections::HashMap, fs::File, path::Path};
 
+// Application state.
+// It's advised to store acquired graphics resources here.
 #[derive(Debug, Default)]
 struct State {
     shader: Option<Shader>,
@@ -8,6 +10,9 @@ struct State {
 }
 
 impl AppState<Vertex2d> for State {
+    // init gets called as soon as Graphics gets constructed.
+    // at this phase you might want to setup Graphics and
+    // acquire resources.
     fn on_init(&mut self, graphics: &mut Graphics<Vertex2d>) {
         graphics.color = [0.25, 0.25, 0.25];
         graphics.main_camera.screen_alignment = 0.5.into();
@@ -20,6 +25,10 @@ impl AppState<Vertex2d> for State {
 
         self.texture = Some(load_texture(graphics, "resources/ferris.png"));
     }
+
+    // redraw gets called whenever window processes its main events.
+    // here you want to stream vertices into Graphics's stream.
+    // stream will be rendered after this method completes.
     fn on_redraw(&mut self, graphics: &mut Graphics<Vertex2d>) {
         let texture = self.texture.clone().unwrap();
         let vertices = texture_quad(&texture);
@@ -48,7 +57,11 @@ impl AppState<Vertex2d> for State {
 }
 
 fn main() {
-    App::default().run::<State, Vertex2d, 0>(State::default());
+    // App can be parameterized, here we just use defaults and run
+    // it with our app state. It's worth noting that you can make
+    // your own Vertex types, here we use default one provided.
+    // we also have to define number of texture units we are using.
+    App::default().run::<State, Vertex2d, 1>(State::default());
 }
 
 fn texture_quad(texture: &Texture) -> [Vertex2d; 4] {
