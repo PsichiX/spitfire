@@ -1,21 +1,20 @@
 [package]
-name = "spitfire-glow"
+name = "spitfire-fontdue"
 version = "0.5.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
-description = "GLOW renderer module for Spitfire toolset"
+description = "Fontdue renderer module for Spitfire toolset"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/PsichiX/spitfire"
 repository = "https://github.com/PsichiX/spitfire"
-documentation = "https://docs.rs/spitfire-glow"
+documentation = "https://docs.rs/spitfire-fontdue"
 readme = "../../README.md"
-
-[features]
-debug_automatic_glGetError = ["glow/debug_automatic_glGetError"]
 
 [dependencies]
 spitfire-core = { version = "0.5", path = "../core" }
 bytemuck = { version = "1", features = ["derive"] }
-glow = "0.12"
-glutin = "0.28"
-vek = "0.16"
+fontdue = "0.7"
+etagere = "0.2"
+
+[dev-dependencies]
+image = { version = "0.24", default-features = false, features = ["png"] }

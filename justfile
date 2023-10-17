@@ -30,8 +30,9 @@ list-outdated:
     cargo outdated -R -w
 
 update:
-    cargo update --manifest-path ./platform/core/Cargo.toml --aggressive
-    cargo update --manifest-path ./backends/glow/Cargo.toml --aggressive
+    cargo update --manifest-path ./crates/core/Cargo.toml --aggressive
+    cargo update --manifest-path ./crates/glow/Cargo.toml --aggressive
+    cargo update --manifest-path ./crates/fontdue/Cargo.toml --aggressive
 
 example NAME="hello_world":
     cargo run --all-features --example {{NAME}}
@@ -40,5 +41,7 @@ publish:
     cargo publish --no-verify --manifest-path ./crates/core/Cargo.toml
     sleep 1
     cargo publish --no-verify --manifest-path ./crates/glow/Cargo.toml
+    sleep 1
+    cargo publish --no-verify --manifest-path ./crates/fontdue/Cargo.toml
     sleep 1
     cargo publish --no-verify --manifest-path ./crates/_/Cargo.toml

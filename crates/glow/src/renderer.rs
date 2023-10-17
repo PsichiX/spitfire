@@ -1,8 +1,8 @@
 use bytemuck::{checked::cast_slice, Pod};
 use glow::{
     Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND, DST_COLOR,
-    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, LINEAR_MIPMAP_LINEAR, NEAREST, ONE,
-    ONE_MINUS_SRC_ALPHA, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D,
+    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, LUMINANCE, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, RGB,
+    RGBA, RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D,
     TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TRIANGLES, UNSIGNED_INT, ZERO,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
@@ -67,7 +67,6 @@ pub enum GlowTextureFiltering {
     #[default]
     Nearest,
     Linear,
-    Bilinear,
 }
 
 impl GlowTextureFiltering {
@@ -75,7 +74,28 @@ impl GlowTextureFiltering {
         match self {
             Self::Nearest => (NEAREST as _, NEAREST as _),
             Self::Linear => (LINEAR as _, LINEAR as _),
-            Self::Bilinear => (LINEAR_MIPMAP_LINEAR as _, LINEAR as _),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum GlowTextureFormat {
+    #[default]
+    Rgba,
+    Rgb,
+    Luminance,
+    Data16,
+    Data32,
+}
+
+impl GlowTextureFormat {
+    pub fn into_gl(self) -> u32 {
+        match self {
+            Self::Rgba => RGBA,
+            Self::Rgb => RGB,
+            Self::Luminance => LUMINANCE,
+            Self::Data16 => RGBA16F,
+            Self::Data32 => RGBA32F,
         }
     }
 }

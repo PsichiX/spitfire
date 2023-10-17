@@ -1,15 +1,13 @@
-use crate::{
-    prelude::{GlowBlending, GlowTextureFiltering},
-    renderer::{
-        GlowBatch, GlowRenderer, GlowState, GlowUniformValue, GlowVertexAttrib, GlowVertexAttribs,
-    },
+use crate::renderer::{
+    GlowBatch, GlowBlending, GlowRenderer, GlowState, GlowTextureFiltering, GlowTextureFormat,
+    GlowUniformValue, GlowVertexAttrib, GlowVertexAttribs,
 };
 use bytemuck::{Pod, Zeroable};
 use glow::{
     Context, HasContext, Program as GlowProgram, Shader as GlowShader, Texture as GlowTexture,
-    BLEND, CLAMP_TO_EDGE, COLOR_BUFFER_BIT, FRAGMENT_SHADER, NEAREST, RGBA, SCISSOR_TEST,
-    TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_S, TEXTURE_WRAP_T,
-    UNSIGNED_BYTE, VERTEX_SHADER,
+    BLEND, CLAMP_TO_EDGE, COLOR_BUFFER_BIT, FRAGMENT_SHADER, NEAREST, SCISSOR_TEST,
+    TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R, TEXTURE_WRAP_S,
+    TEXTURE_WRAP_T, UNSIGNED_BYTE, VERTEX_SHADER,
 };
 use spitfire_core::{VertexStream, VertexStreamRenderer};
 use std::{
@@ -22,54 +20,10 @@ use vek::{FrustumPlanes, Mat4, Rect, Transform, Vec2};
 
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct Vertex2d {
-    pub position: [f32; 2],
-    pub uv: [f32; 2],
-    pub color: [f32; 4],
-}
-
-impl GlowVertexAttribs for Vertex2d {
-    const ATTRIBS: &'static [(&'static str, GlowVertexAttrib)] = &[
-        (
-            "a_position",
-            GlowVertexAttrib::Float {
-                channels: 2,
-                normalized: false,
-            },
-        ),
-        (
-            "a_uv",
-            GlowVertexAttrib::Float {
-                channels: 2,
-                normalized: false,
-            },
-        ),
-        (
-            "a_color",
-            GlowVertexAttrib::Float {
-                channels: 4,
-                normalized: false,
-            },
-        ),
-    ];
-}
-
-impl Default for Vertex2d {
-    fn default() -> Self {
-        Self {
-            position: Default::default(),
-            uv: Default::default(),
-            color: [1.0, 1.0, 1.0, 1.0],
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
 pub struct Vertex3d {
     pub position: [f32; 3],
     pub normal: [f32; 3],
-    pub uv: [f32; 2],
+    pub uv: [f32; 3],
     pub color: [f32; 4],
 }
 
@@ -92,7 +46,7 @@ impl GlowVertexAttribs for Vertex3d {
         (
             "a_uv",
             GlowVertexAttrib::Float {
-                channels: 2,
+                channels: 3,
                 normalized: false,
             },
         ),
@@ -181,28 +135,29 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         self.context.get()
     }
 
+    pub fn pixel_texture(&self, color: [u8; 3]) -> Result<Texture, String> {
+        self.texture(1, 1, 1, GlowTextureFormat::Rgb, &color)
+    }
+
     pub fn texture(
         &self,
         width: u32,
         height: u32,
+        depth: u32,
+        format: GlowTextureFormat,
         data: &[u8],
-        generate_mipmaps: bool,
     ) -> Result<Texture, String> {
         unsafe {
             if let Some(context) = self.context.get() {
                 let texture = context.create_texture()?;
-                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_WRAP_S, CLAMP_TO_EDGE as _);
-                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_WRAP_T, CLAMP_TO_EDGE as _);
-                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as _);
-                context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as _);
                 let mut result = Texture {
                     inner: Rc::new(TextureInner {
                         context: self.context.0.clone(),
                         texture,
-                        size: Cell::new((0, 0)),
+                        size: Cell::new((0, 0, 0)),
                     }),
                 };
-                result.upload(width, height, data, generate_mipmaps);
+                result.upload(width, height, depth, format, data);
                 Ok(result)
             } else {
                 Err("Invalid context".to_owned())
@@ -219,18 +174,27 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                 context.shader_source(vertex_shader, vertex);
                 context.compile_shader(vertex_shader);
                 if !context.get_shader_compile_status(vertex_shader) {
-                    return Err(context.get_shader_info_log(vertex_shader));
+                    return Err(format!(
+                        "Vertex Shader: {}",
+                        context.get_shader_info_log(vertex_shader)
+                    ));
                 }
                 context.shader_source(fragment_shader, fragment);
                 context.compile_shader(fragment_shader);
                 if !context.get_shader_compile_status(fragment_shader) {
-                    return Err(context.get_shader_info_log(fragment_shader));
+                    return Err(format!(
+                        "Fragment Shader: {}",
+                        context.get_shader_info_log(fragment_shader)
+                    ));
                 }
                 context.attach_shader(program, vertex_shader);
                 context.attach_shader(program, fragment_shader);
                 context.link_program(program);
                 if !context.get_program_link_status(program) {
-                    return Err(context.get_program_info_log(program));
+                    return Err(format!(
+                        "Shader Program: {}",
+                        context.get_program_info_log(program)
+                    ));
                 }
                 Ok(Shader {
                     inner: Rc::new(ShaderInner {
@@ -250,7 +214,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         unsafe {
             if let Some(context) = self.context.get() {
                 let [r, g, b] = self.color;
-                context.bind_texture(TEXTURE_2D, None);
+                context.bind_texture(TEXTURE_2D_ARRAY, None);
                 context.bind_vertex_array(None);
                 context.use_program(None);
                 context.disable(BLEND);
@@ -264,6 +228,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
     pub fn draw<const TN: usize>(&mut self) -> Result<(), String> {
         if let Some(context) = self.context.get() {
             let mut renderer = GlowRenderer::<GraphicsBatch, TN>::new(&context, &mut self.state);
+            self.stream.batch_end();
             renderer.render(&mut self.stream)?;
             self.stream.clear();
             Ok(())
@@ -321,7 +286,7 @@ impl<const TN: usize> Into<GlowBatch<TN>> for GraphicsBatch {
                 for (from, to) in self.textures.into_iter().zip(result.iter_mut()) {
                     *to = from.map(|(v, f)| {
                         let (min, mag) = f.into_gl();
-                        (v.handle(), TEXTURE_2D, min, mag)
+                        (v.handle(), TEXTURE_2D_ARRAY, min, mag)
                     });
                 }
                 result
@@ -336,7 +301,7 @@ impl<const TN: usize> Into<GlowBatch<TN>> for GraphicsBatch {
 struct TextureInner {
     context: MaybeContext,
     texture: GlowTexture,
-    size: Cell<(u32, u32)>,
+    size: Cell<(u32, u32, u32)>,
 }
 
 impl Drop for TextureInner {
@@ -367,25 +332,39 @@ impl Texture {
         self.inner.size.get().1
     }
 
-    pub fn upload(&mut self, width: u32, height: u32, data: &[u8], generate_mipmaps: bool) {
+    pub fn depth(&self) -> u32 {
+        self.inner.size.get().2
+    }
+
+    pub fn upload(
+        &mut self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        format: GlowTextureFormat,
+        data: &[u8],
+    ) {
         unsafe {
             if let Some(context) = self.inner.context.get() {
-                context.bind_texture(TEXTURE_2D, Some(self.inner.texture));
-                context.tex_image_2d(
-                    TEXTURE_2D,
+                context.bind_texture(TEXTURE_2D_ARRAY, Some(self.inner.texture));
+                context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_WRAP_S, CLAMP_TO_EDGE as _);
+                context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_WRAP_T, CLAMP_TO_EDGE as _);
+                context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_WRAP_R, CLAMP_TO_EDGE as _);
+                context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MIN_FILTER, NEAREST as _);
+                context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, NEAREST as _);
+                context.tex_image_3d(
+                    TEXTURE_2D_ARRAY,
                     0,
-                    RGBA as _,
+                    format.into_gl() as _,
                     width as _,
                     height as _,
+                    depth as _,
                     0,
-                    RGBA,
+                    format.into_gl(),
                     UNSIGNED_BYTE,
                     Some(data),
                 );
-                if generate_mipmaps {
-                    context.generate_mipmap(TEXTURE_2D);
-                }
-                self.inner.size.set((width, height));
+                self.inner.size.set((width, height, depth));
             }
         }
     }
@@ -441,6 +420,7 @@ impl Shader {
 
     pub const PASS_FRAGMENT: &str = r#"#version 300 es
     precision highp float;
+    precision highp int;
     in vec4 v_color;
     out vec4 o_color;
 
@@ -475,10 +455,10 @@ impl Shader {
 
     pub const TEXTURED_VERTEX_2D: &str = r#"#version 300 es
     layout(location = 0) in vec2 a_position;
-    layout(location = 1) in vec2 a_uv;
+    layout(location = 1) in vec3 a_uv;
     layout(location = 2) in vec4 a_color;
     out vec4 v_color;
-    out vec2 v_uv;
+    out vec3 v_uv;
     uniform mat4 u_projection_view;
 
     void main() {
@@ -490,10 +470,10 @@ impl Shader {
 
     pub const TEXTURED_VERTEX_3D: &str = r#"#version 300 es
     layout(location = 0) in vec3 a_position;
-    layout(location = 2) in vec2 a_uv;
+    layout(location = 2) in vec3 a_uv;
     layout(location = 3) in vec4 a_color;
     out vec4 v_color;
-    out vec2 v_uv;
+    out vec3 v_uv;
     uniform mat4 u_projection_view;
 
     void main() {
@@ -505,13 +485,45 @@ impl Shader {
 
     pub const TEXTURED_FRAGMENT: &str = r#"#version 300 es
     precision highp float;
+    precision highp int;
+    precision highp sampler2DArray;
     in vec4 v_color;
-    in vec2 v_uv;
+    in vec3 v_uv;
     out vec4 o_color;
-    uniform sampler2D u_image;
+    uniform sampler2DArray u_image;
 
     void main() {
         o_color = texture(u_image, v_uv) * v_color;
+    }
+    "#;
+
+    pub const TEXT_VERTEX: &str = r#"#version 300 es
+    layout(location = 0) in vec2 a_position;
+    layout(location = 1) in vec3 a_uv;
+    layout(location = 2) in vec4 a_color;
+    out vec4 v_color;
+    out vec3 v_uv;
+    uniform mat4 u_projection_view;
+
+    void main() {
+        gl_Position = u_projection_view * vec4(a_position, 0.0, 1.0);
+        v_color = a_color;
+        v_uv = a_uv;
+    }
+    "#;
+
+    pub const TEXT_FRAGMENT: &str = r#"#version 300 es
+    precision highp float;
+    precision highp int;
+    precision highp sampler2DArray;
+    in vec4 v_color;
+    in vec3 v_uv;
+    out vec4 o_color;
+    uniform sampler2DArray u_image;
+
+    void main() {
+        float alpha = texture(u_image, v_uv).x;
+        o_color = vec4(v_color.xyz, v_color.w * alpha);
     }
     "#;
 

@@ -3,14 +3,6 @@ use std::{ops::Range, vec::Drain};
 
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct SimpleVertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
-    pub uv: [f32; 2],
-}
-
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
 pub struct Triangle {
     pub a: u32,
     pub b: u32,
@@ -62,7 +54,7 @@ impl<V: Pod, B> VertexStream<V, B> {
 
     pub fn triangle(&mut self, vertices: [V; 3]) -> &mut Self {
         self.ensure_capacity();
-        let offset = self.triangles.len() * 3;
+        let offset = self.vertices.len();
         self.vertices.extend(vertices);
         self.triangles.push(Triangle::default().offset(offset));
         self
@@ -70,7 +62,7 @@ impl<V: Pod, B> VertexStream<V, B> {
 
     pub fn quad(&mut self, vertices: [V; 4]) -> &mut Self {
         self.ensure_capacity();
-        let offset = self.triangles.len() * 3;
+        let offset = self.vertices.len();
         self.vertices.extend(vertices);
         self.triangles
             .push(Triangle { a: 0, b: 1, c: 2 }.offset(offset));
@@ -85,7 +77,7 @@ impl<V: Pod, B> VertexStream<V, B> {
         triangles: impl IntoIterator<Item = Triangle>,
     ) -> &mut Self {
         self.ensure_capacity();
-        let offset = self.triangles.len() * 3;
+        let offset = self.vertices.len();
         self.vertices.extend(vertices);
         self.triangles.extend(
             triangles
@@ -97,7 +89,7 @@ impl<V: Pod, B> VertexStream<V, B> {
 
     pub fn append(&mut self, other: &mut Self) {
         self.extend(other.vertices.drain(..), other.triangles.drain(..));
-        let offset = self.triangles.len();
+        let offset = self.vertices.len();
         self.batches.extend(
             other
                 .batches
