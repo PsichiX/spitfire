@@ -4,14 +4,14 @@ use fontdue::{
     layout::{GlyphPosition, GlyphRasterConfig, Layout},
     Font,
 };
-use spitfire_core::{VertexStream, VertexStreamRenderer};
+use spitfire_core::VertexStream;
 use std::{
     collections::{hash_map::Entry, HashMap},
     marker::PhantomData,
 };
 
 pub trait TextVertex<UD: Copy> {
-    fn apply(&mut self, px: f32, py: f32, tx: f32, ty: f32, tz: f32, user_data: UD);
+    fn apply(&mut self, position: [f32; 2], tex_coord: [f32; 3], user_data: UD);
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -165,16 +165,11 @@ impl<UD: Copy> TextRenderer<UD> {
             renderables: self.ready_to_render,
         }
     }
-}
 
-impl<V, B, UD> VertexStreamRenderer<V, B> for TextRenderer<UD>
-where
-    V: TextVertex<UD> + Pod + Default,
-    UD: Copy,
-{
-    type Error = ();
-
-    fn render(&mut self, stream: &mut VertexStream<V, B>) -> Result<(), Self::Error> {
+    pub fn render_to_stream<V, B>(&mut self, stream: &mut VertexStream<V, B>)
+    where
+        V: TextVertex<UD> + Pod + Default,
+    {
         let [w, h, _] = self.atlas_size;
         let w = w as f32;
         let h = h as f32;
@@ -185,41 +180,44 @@ where
                 let mut c = V::default();
                 let mut d = V::default();
                 a.apply(
-                    glyph.x,
-                    glyph.y,
-                    data.rectangle.min_x() as f32 / w,
-                    data.rectangle.min_y() as f32 / h,
-                    data.page as f32,
+                    [glyph.x, glyph.y],
+                    [
+                        data.rectangle.min_x() as f32 / w,
+                        data.rectangle.min_y() as f32 / h,
+                        data.page as f32,
+                    ],
                     glyph.user_data,
                 );
                 b.apply(
-                    glyph.x + glyph.width as f32,
-                    glyph.y,
-                    data.rectangle.max_x() as f32 / w,
-                    data.rectangle.min_y() as f32 / h,
-                    data.page as f32,
+                    [glyph.x + glyph.width as f32, glyph.y],
+                    [
+                        data.rectangle.max_x() as f32 / w,
+                        data.rectangle.min_y() as f32 / h,
+                        data.page as f32,
+                    ],
                     glyph.user_data,
                 );
                 c.apply(
-                    glyph.x + glyph.width as f32,
-                    glyph.y + glyph.height as f32,
-                    data.rectangle.max_x() as f32 / w,
-                    data.rectangle.max_y() as f32 / h,
-                    data.page as f32,
+                    [glyph.x + glyph.width as f32, glyph.y + glyph.height as f32],
+                    [
+                        data.rectangle.max_x() as f32 / w,
+                        data.rectangle.max_y() as f32 / h,
+                        data.page as f32,
+                    ],
                     glyph.user_data,
                 );
                 d.apply(
-                    glyph.x,
-                    glyph.y + glyph.height as f32,
-                    data.rectangle.min_x() as f32 / w,
-                    data.rectangle.max_y() as f32 / h,
-                    data.page as f32,
+                    [glyph.x, glyph.y + glyph.height as f32],
+                    [
+                        data.rectangle.min_x() as f32 / w,
+                        data.rectangle.max_y() as f32 / h,
+                        data.page as f32,
+                    ],
                     glyph.user_data,
                 );
                 stream.quad([a, b, c, d]);
             }
         }
-        Ok(())
     }
 }
 

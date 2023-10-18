@@ -52,6 +52,20 @@ impl<V: Pod, B> VertexStream<V, B> {
         }
     }
 
+    pub fn transformed(
+        &mut self,
+        mut f: impl FnMut(&mut Self),
+        mut t: impl FnMut(&mut V),
+    ) -> &mut Self {
+        let start = self.vertices.len();
+        f(self);
+        let end = self.vertices.len();
+        for vertex in &mut self.vertices[start..end] {
+            t(vertex);
+        }
+        self
+    }
+
     pub fn triangle(&mut self, vertices: [V; 3]) -> &mut Self {
         self.ensure_capacity();
         let offset = self.vertices.len();
@@ -96,8 +110,18 @@ impl<V: Pod, B> VertexStream<V, B> {
 
     /// # Safety
     /// By writing raw triangles you might produce invalid renderables!
-    pub unsafe fn extend_triangles(&mut self, iter: impl IntoIterator<Item = Triangle>) -> &Self {
-        self.triangles.extend(iter);
+    pub unsafe fn extend_triangles(
+        &mut self,
+        relative: bool,
+        iter: impl IntoIterator<Item = Triangle>,
+    ) -> &Self {
+        if relative {
+            let offset = self.vertices.len();
+            self.triangles
+                .extend(iter.into_iter().map(|triangle| triangle.offset(offset)));
+        } else {
+            self.triangles.extend(iter);
+        }
         self
     }
 
@@ -135,6 +159,19 @@ impl<V: Pod, B> VertexStream<V, B> {
         self.batch_end();
         let start = self.triangles.len();
         self.batches.push((data, start..start))
+    }
+
+    pub fn batch_optimized(&mut self, data: B)
+    where
+        B: PartialEq,
+    {
+        if let Some(last) = self.batches.last_mut() {
+            if last.0 == data {
+                last.1.end = self.triangles.len();
+                return;
+            }
+        }
+        self.batch(data);
     }
 
     pub fn batch_end(&mut self) {

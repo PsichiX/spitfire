@@ -3,7 +3,6 @@ use fontdue::{
     layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle},
     Font,
 };
-use spitfire_core::VertexStreamRenderer;
 use spitfire_fontdue::*;
 use spitfire_glow::prelude::*;
 use std::{collections::HashMap, fs::File, path::Path};
@@ -60,13 +59,10 @@ impl GlowVertexAttribs for Vertex {
 // This trait allows Fontdue renderer to
 // apply text position and coords.
 impl TextVertex<[f32; 4]> for Vertex {
-    fn apply(&mut self, px: f32, py: f32, tx: f32, ty: f32, tz: f32, color: [f32; 4]) {
-        self.position[0] = px;
-        self.position[1] = py;
-        self.uv[0] = tx;
-        self.uv[1] = ty;
-        self.uv[2] = tz;
-        self.color = color;
+    fn apply(&mut self, position: [f32; 2], tex_coord: [f32; 3], user_data: [f32; 4]) {
+        self.position = position;
+        self.uv = tex_coord;
+        self.color = user_data;
     }
 }
 
@@ -176,7 +172,7 @@ impl AppState<Vertex> for State {
             ..Default::default()
         });
 
-        let _ = text_renderer.render(&mut graphics.stream);
+        text_renderer.render_to_stream(&mut graphics.stream);
     }
 }
 
