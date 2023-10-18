@@ -177,11 +177,9 @@ impl AppState<Vertex> for State {
 }
 
 fn main() {
-    // App can be parameterized, here we just use defaults and run
-    // it with our app state. It's worth noting that you can make
-    // your own Vertex types, here we use default one provided.
-    // we also have to define number of texture units we are using.
-    App::default().run::<State, Vertex, 1>(State::default());
+    // App can be parameterized with AppConfig, here we just
+    // use default and run it with our app state.
+    App::<Vertex>::default().run::<State, 1>(State::default());
 }
 
 fn texture_quad(texture: &Texture) -> [Vertex; 4] {

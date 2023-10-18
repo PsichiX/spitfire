@@ -5,8 +5,8 @@ use glutin::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     platform::run_return::EventLoopExtRunReturn,
-    window::{Fullscreen, WindowBuilder},
-    ContextBuilder,
+    window::{Fullscreen, Window, WindowBuilder},
+    ContextBuilder, ContextWrapper, PossiblyCurrent,
 };
 
 #[allow(unused_variables)]
@@ -20,7 +20,7 @@ pub trait AppState<V: GlowVertexAttribs> {
     }
 }
 
-pub struct App {
+pub struct AppConfig {
     pub title: String,
     pub width: u32,
     pub height: u32,
@@ -30,7 +30,7 @@ pub struct App {
     pub color: [f32; 3],
 }
 
-impl Default for App {
+impl Default for AppConfig {
     fn default() -> Self {
         Self {
             title: "Spitfire Application".to_owned(),
@@ -44,7 +44,7 @@ impl Default for App {
     }
 }
 
-impl App {
+impl AppConfig {
     pub fn title(mut self, v: impl ToString) -> Self {
         self.title = v.to_string();
         self
@@ -79,23 +79,40 @@ impl App {
         self.color = v.into();
         self
     }
+}
 
-    pub fn run<S: AppState<V>, V: GlowVertexAttribs, const TN: usize>(self, mut state: S) -> S {
-        let App {
+pub struct App<V: GlowVertexAttribs> {
+    width: u32,
+    height: u32,
+    refresh_on_event: bool,
+    event_loop: EventLoop<()>,
+    context_wrapper: ContextWrapper<PossiblyCurrent, Window>,
+    graphics: Graphics<V>,
+}
+
+impl<V: GlowVertexAttribs> Default for App<V> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
+impl<V: GlowVertexAttribs> App<V> {
+    pub fn new(config: AppConfig) -> Self {
+        let AppConfig {
             title,
-            mut width,
-            mut height,
+            width,
+            height,
             fullscreen,
             vsync,
             refresh_on_event,
             color,
-        } = self;
+        } = config;
         let fullscreen = if fullscreen {
             Some(Fullscreen::Borderless(None))
         } else {
             None
         };
-        let mut event_loop = EventLoop::new();
+        let event_loop = EventLoop::new();
         let window_builder = WindowBuilder::new()
             .with_title(title.as_str())
             .with_inner_size(LogicalSize::new(width, height))
@@ -115,6 +132,25 @@ impl App {
         };
         let mut graphics = Graphics::<V>::new(context);
         graphics.color = color;
+        Self {
+            width,
+            height,
+            refresh_on_event,
+            event_loop,
+            context_wrapper,
+            graphics,
+        }
+    }
+
+    pub fn run<S: AppState<V>, const TN: usize>(self, mut state: S) -> S {
+        let App {
+            mut width,
+            mut height,
+            refresh_on_event,
+            mut event_loop,
+            context_wrapper,
+            mut graphics,
+        } = self;
         state.on_init(&mut graphics);
         let mut running = true;
         while running {
