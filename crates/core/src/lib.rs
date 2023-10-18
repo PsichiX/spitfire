@@ -87,6 +87,30 @@ impl<V: Pod, B> VertexStream<V, B> {
         self
     }
 
+    /// # Safety
+    /// By writing raw vertices you might produce invalid renderables!
+    pub unsafe fn extend_vertices(&mut self, iter: impl IntoIterator<Item = V>) -> &Self {
+        self.vertices.extend(iter);
+        self
+    }
+
+    /// # Safety
+    /// By writing raw triangles you might produce invalid renderables!
+    pub unsafe fn extend_triangles(&mut self, iter: impl IntoIterator<Item = Triangle>) -> &Self {
+        self.triangles.extend(iter);
+        self
+    }
+
+    /// # Safety
+    /// By writing raw batches you might produce invalid renderables!
+    pub unsafe fn extend_batches(
+        &mut self,
+        iter: impl IntoIterator<Item = (B, Range<usize>)>,
+    ) -> &Self {
+        self.batches.extend(iter);
+        self
+    }
+
     pub fn append(&mut self, other: &mut Self) {
         self.extend(other.vertices.drain(..), other.triangles.drain(..));
         let offset = self.vertices.len();
