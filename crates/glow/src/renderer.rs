@@ -100,7 +100,7 @@ impl GlowTextureFormat {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct GlowBatch<const TN: usize> {
     pub shader_program: Option<(Program, HashMap<Cow<'static, str>, GlowUniformValue>)>,
     /// [(texture object, texture target, min filter, mag filter)?]

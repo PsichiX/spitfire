@@ -267,7 +267,7 @@ impl Camera {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct GraphicsBatch {
     pub shader: Option<(Shader, HashMap<Cow<'static, str>, GlowUniformValue>)>,
     pub textures: Vec<Option<(Texture, GlowTextureFiltering)>>,
@@ -367,6 +367,12 @@ impl Texture {
                 self.inner.size.set((width, height, depth));
             }
         }
+    }
+}
+
+impl PartialEq for Texture {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner)
     }
 }
 
@@ -529,5 +535,11 @@ impl Shader {
 
     pub fn handle(&self) -> GlowProgram {
         self.inner.program
+    }
+}
+
+impl PartialEq for Shader {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner)
     }
 }
