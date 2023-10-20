@@ -131,11 +131,9 @@ impl AppState<Vertex> for State {
         uniforms.insert("u_image".into(), GlowUniformValue::I1(0));
 
         graphics.stream.batch(GraphicsBatch {
-            shader: self
-                .sprite_shader
-                .as_ref()
-                .map(|shader| (shader.clone(), uniforms.clone())),
-            textures: vec![Some((ferris_texture, GlowTextureFiltering::Linear))],
+            shader: self.sprite_shader.clone(),
+            uniforms: uniforms.clone(),
+            textures: vec![(ferris_texture, GlowTextureFiltering::Linear)],
             blending: GlowBlending::Alpha,
             ..Default::default()
         });
@@ -163,11 +161,9 @@ impl AppState<Vertex> for State {
         );
 
         graphics.stream.batch(GraphicsBatch {
-            shader: self
-                .text_shader
-                .as_ref()
-                .map(|shader| (shader.clone(), uniforms.clone())),
-            textures: vec![Some((fonts_texture.clone(), GlowTextureFiltering::Linear))],
+            shader: self.text_shader.clone(),
+            uniforms: uniforms.clone(),
+            textures: vec![(fonts_texture.clone(), GlowTextureFiltering::Linear)],
             blending: GlowBlending::Alpha,
             ..Default::default()
         });
@@ -179,7 +175,7 @@ impl AppState<Vertex> for State {
 fn main() {
     // App can be parameterized with AppConfig, here we just
     // use default and run it with our app state.
-    App::<Vertex>::default().run::<State, 1>(State::default());
+    App::<Vertex>::default().run::<State>(State::default());
 }
 
 fn texture_quad(texture: &Texture) -> [Vertex; 4] {

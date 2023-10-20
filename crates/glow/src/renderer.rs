@@ -100,90 +100,99 @@ impl GlowTextureFormat {
     }
 }
 
-#[derive(Clone, PartialEq)]
-pub struct GlowBatch<const TN: usize> {
-    pub shader_program: Option<(Program, HashMap<Cow<'static, str>, GlowUniformValue>)>,
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct GlowBatch {
+    pub shader_program: Option<Program>,
+    pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
     /// [(texture object, texture target, min filter, mag filter)?]
-    pub textures: [Option<(Texture, u32, i32, i32)>; TN],
+    pub textures: Vec<(Texture, u32, i32, i32)>,
     /// (source, destination)?
     pub blending: Option<(u32, u32)>,
     /// [x, y, width, height]?
     pub scissor: Option<[i32; 4]>,
 }
 
-impl<const TN: usize> Default for GlowBatch<TN> {
-    fn default() -> Self {
-        Self {
-            shader_program: None,
-            textures: [None; TN],
-            scissor: None,
-            blending: None,
-        }
-    }
-}
-
-impl<const TN: usize> GlowBatch<TN> {
+impl GlowBatch {
     pub fn draw<V: GlowVertexAttribs>(&self, context: &Context, range: Range<usize>, prev: &Self) {
         unsafe {
-            if let Some((program, uniforms)) = &self.shader_program {
-                if prev
+            if let Some(program) = self.shader_program {
+                let changed = prev
                     .shader_program
-                    .as_ref()
-                    .map(|(prev, _)| program != prev)
-                    .unwrap_or(true)
-                {
-                    context.use_program(Some(*program));
-                }
-                for (name, value) in uniforms {
-                    let location = context.get_uniform_location(*program, name.as_ref());
-                    if let Some(location) = location {
-                        match value {
-                            GlowUniformValue::F1(value) => {
-                                context.uniform_1_f32(Some(&location), *value);
-                            }
-                            GlowUniformValue::F2(value) => {
-                                context.uniform_2_f32_slice(Some(&location), value);
-                            }
-                            GlowUniformValue::F3(value) => {
-                                context.uniform_3_f32_slice(Some(&location), value);
-                            }
-                            GlowUniformValue::F4(value) => {
-                                context.uniform_4_f32_slice(Some(&location), value);
-                            }
-                            GlowUniformValue::M2(value) => {
-                                context.uniform_matrix_2_f32_slice(Some(&location), false, value);
-                            }
-                            GlowUniformValue::M3(value) => {
-                                context.uniform_matrix_3_f32_slice(Some(&location), false, value);
-                            }
-                            GlowUniformValue::M4(value) => {
-                                context.uniform_matrix_4_f32_slice(Some(&location), false, value);
-                            }
-                            GlowUniformValue::I1(value) => {
-                                context.uniform_1_i32(Some(&location), *value);
-                            }
-                            GlowUniformValue::I2(value) => {
-                                context.uniform_2_i32_slice(Some(&location), value);
-                            }
-                            GlowUniformValue::I3(value) => {
-                                context.uniform_3_i32_slice(Some(&location), value);
-                            }
-                            GlowUniformValue::I4(value) => {
-                                context.uniform_4_i32_slice(Some(&location), value);
+                    .map(|program_prev| program != program_prev)
+                    .unwrap_or(true);
+                context.use_program(Some(program));
+                for (name, value) in &self.uniforms {
+                    if changed
+                        || prev
+                            .uniforms
+                            .get(name)
+                            .map(|v| value != v)
+                            .unwrap_or_default()
+                    {
+                        let location = context.get_uniform_location(program, name.as_ref());
+                        if let Some(location) = location {
+                            match value {
+                                GlowUniformValue::F1(value) => {
+                                    context.uniform_1_f32(Some(&location), *value);
+                                }
+                                GlowUniformValue::F2(value) => {
+                                    context.uniform_2_f32_slice(Some(&location), value);
+                                }
+                                GlowUniformValue::F3(value) => {
+                                    context.uniform_3_f32_slice(Some(&location), value);
+                                }
+                                GlowUniformValue::F4(value) => {
+                                    context.uniform_4_f32_slice(Some(&location), value);
+                                }
+                                GlowUniformValue::M2(value) => {
+                                    context.uniform_matrix_2_f32_slice(
+                                        Some(&location),
+                                        false,
+                                        value,
+                                    );
+                                }
+                                GlowUniformValue::M3(value) => {
+                                    context.uniform_matrix_3_f32_slice(
+                                        Some(&location),
+                                        false,
+                                        value,
+                                    );
+                                }
+                                GlowUniformValue::M4(value) => {
+                                    context.uniform_matrix_4_f32_slice(
+                                        Some(&location),
+                                        false,
+                                        value,
+                                    );
+                                }
+                                GlowUniformValue::I1(value) => {
+                                    context.uniform_1_i32(Some(&location), *value);
+                                }
+                                GlowUniformValue::I2(value) => {
+                                    context.uniform_2_i32_slice(Some(&location), value);
+                                }
+                                GlowUniformValue::I3(value) => {
+                                    context.uniform_3_i32_slice(Some(&location), value);
+                                }
+                                GlowUniformValue::I4(value) => {
+                                    context.uniform_4_i32_slice(Some(&location), value);
+                                }
                             }
                         }
                     }
                 }
             }
-            if self.textures != prev.textures {
-                for (index, data) in self.textures.iter().copied().enumerate() {
-                    context.active_texture(TEXTURE0 + index as u32);
-                    if let Some((texture, target, min_filter, mag_filter)) = data {
-                        context.bind_texture(target, Some(texture));
-                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, min_filter);
-                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, mag_filter);
-                    } else {
-                        context.bind_texture(TEXTURE_2D, None);
+            for (index, data) in self.textures.iter().enumerate() {
+                context.active_texture(TEXTURE0 + index as u32);
+                let data_prev = prev.textures.get(index);
+                if data_prev.map(|prev| prev != data).unwrap_or(true) {
+                    let (texture, target, min_filter, mag_filter) = data;
+                    context.bind_texture(*target, Some(*texture));
+                    if data_prev.map(|prev| prev.2 != *min_filter).unwrap_or(true) {
+                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, *min_filter);
+                    }
+                    if data_prev.map(|prev| prev.2 != *mag_filter).unwrap_or(true) {
+                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, *mag_filter);
                     }
                 }
             }
@@ -318,15 +327,15 @@ impl GlowState {
     }
 }
 
-pub struct GlowRenderer<'a, B: Into<GlowBatch<TN>>, const TN: usize> {
+pub struct GlowRenderer<'a, B: Into<GlowBatch>> {
     context: &'a Context,
     state: &'a mut GlowState,
     _phantom: PhantomData<fn() -> B>,
 }
 
-impl<'a, B, const TN: usize> GlowRenderer<'a, B, TN>
+impl<'a, B> GlowRenderer<'a, B>
 where
-    B: Into<GlowBatch<TN>>,
+    B: Into<GlowBatch>,
 {
     pub fn new(context: &'a Context, state: &'a mut GlowState) -> Self {
         Self {
@@ -337,17 +346,17 @@ where
     }
 }
 
-impl<'a, V, B, const TN: usize> VertexStreamRenderer<V, B> for GlowRenderer<'a, B, TN>
+impl<'a, V, B> VertexStreamRenderer<V, B> for GlowRenderer<'a, B>
 where
     V: GlowVertexAttribs,
-    B: Into<GlowBatch<TN>> + Default + Clone,
+    B: Into<GlowBatch> + Default + Clone,
 {
     type Error = String;
 
     fn render(&mut self, stream: &mut VertexStream<V, B>) -> Result<(), Self::Error> {
         let mesh = self.state.mesh(self.context)?;
         mesh.upload(self.context, stream.vertices(), stream.triangles());
-        let mut prev = GlowBatch::<TN>::default();
+        let mut prev = GlowBatch::default();
         for (batch, range) in stream.batches().iter().cloned() {
             let batch = batch.into();
             batch.draw::<V>(self.context, range, &prev);

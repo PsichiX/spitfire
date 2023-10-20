@@ -225,9 +225,9 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         }
     }
 
-    pub fn draw<const TN: usize>(&mut self) -> Result<(), String> {
+    pub fn draw(&mut self) -> Result<(), String> {
         if let Some(context) = self.context.get() {
-            let mut renderer = GlowRenderer::<GraphicsBatch, TN>::new(&context, &mut self.state);
+            let mut renderer = GlowRenderer::<GraphicsBatch>::new(&context, &mut self.state);
             self.stream.batch_end();
             renderer.render(&mut self.stream)?;
             self.stream.clear();
@@ -269,28 +269,28 @@ impl Camera {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct GraphicsBatch {
-    pub shader: Option<(Shader, HashMap<Cow<'static, str>, GlowUniformValue>)>,
-    pub textures: Vec<Option<(Texture, GlowTextureFiltering)>>,
+    pub shader: Option<Shader>,
+    pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
+    pub textures: Vec<(Texture, GlowTextureFiltering)>,
     /// (source, destination)?
     pub blending: GlowBlending,
     pub scissor: Option<Rect<i32, i32>>,
 }
 
 #[allow(clippy::from_over_into)]
-impl<const TN: usize> Into<GlowBatch<TN>> for GraphicsBatch {
-    fn into(self) -> GlowBatch<TN> {
+impl Into<GlowBatch> for GraphicsBatch {
+    fn into(self) -> GlowBatch {
         GlowBatch {
-            shader_program: self.shader.map(|(s, u)| (s.handle(), u)),
-            textures: {
-                let mut result = [None; TN];
-                for (from, to) in self.textures.into_iter().zip(result.iter_mut()) {
-                    *to = from.map(|(v, f)| {
-                        let (min, mag) = f.into_gl();
-                        (v.handle(), TEXTURE_2D_ARRAY, min, mag)
-                    });
-                }
-                result
-            },
+            shader_program: self.shader.map(|shader| shader.handle()),
+            uniforms: self.uniforms,
+            textures: self
+                .textures
+                .into_iter()
+                .map(|(texture, filtering)| {
+                    let (min, mag) = filtering.into_gl();
+                    (texture.handle(), TEXTURE_2D_ARRAY, min, mag)
+                })
+                .collect(),
             blending: self.blending.into_gl(),
             scissor: self.scissor.map(|v| [v.x, v.y, v.w, v.h]),
         }

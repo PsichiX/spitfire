@@ -142,7 +142,7 @@ impl<V: GlowVertexAttribs> App<V> {
         }
     }
 
-    pub fn run<S: AppState<V>, const TN: usize>(self, mut state: S) -> S {
+    pub fn run<S: AppState<V>>(self, mut state: S) -> S {
         let App {
             mut width,
             mut height,
@@ -172,7 +172,7 @@ impl<V: GlowVertexAttribs> App<V> {
                         graphics.main_camera.viewport_size.y = height as _;
                         graphics.prepare_frame();
                         state.on_redraw(&mut graphics);
-                        let _ = graphics.draw::<TN>();
+                        let _ = graphics.draw();
                         let _ = context_wrapper.swap_buffers();
                         *control_flow = ControlFlow::Exit;
                     }
