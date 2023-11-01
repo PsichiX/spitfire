@@ -90,7 +90,7 @@ struct StrongContext(MaybeContext);
 
 impl Drop for StrongContext {
     fn drop(&mut self) {
-        self.0 .0.borrow_mut().1 = false;
+        (self.0).0.borrow_mut().1 = false;
     }
 }
 

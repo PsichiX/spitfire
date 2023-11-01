@@ -15,7 +15,7 @@ pub trait AppState<V: GlowVertexAttribs> {
 
     fn on_redraw(&mut self, graphics: &mut Graphics<V>) {}
 
-    fn on_event(&mut self, event: Event<()>) -> bool {
+    fn on_event(&mut self, event: Event<()>, window: &mut Window) -> bool {
         true
     }
 }
@@ -151,6 +151,7 @@ impl<V: GlowVertexAttribs> App<V> {
             context_wrapper,
             mut graphics,
         } = self;
+        let (context, mut window) = unsafe { context_wrapper.split() };
         state.on_init(&mut graphics);
         let mut running = true;
         while running {
@@ -173,12 +174,12 @@ impl<V: GlowVertexAttribs> App<V> {
                         graphics.prepare_frame();
                         state.on_redraw(&mut graphics);
                         let _ = graphics.draw();
-                        let _ = context_wrapper.swap_buffers();
+                        let _ = context.swap_buffers();
                         *control_flow = ControlFlow::Exit;
                     }
                     Event::WindowEvent { event, .. } => match event {
                         WindowEvent::Resized(physical_size) => {
-                            context_wrapper.resize(*physical_size);
+                            context.resize(*physical_size);
                             width = physical_size.width;
                             height = physical_size.height;
                         }
@@ -189,11 +190,12 @@ impl<V: GlowVertexAttribs> App<V> {
                     },
                     _ => {}
                 }
-                if !state.on_event(event) {
+                if !state.on_event(event, &mut window) {
                     running = false;
                 }
             });
         }
+        drop(graphics);
         state
     }
 }
