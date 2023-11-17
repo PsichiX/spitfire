@@ -20,12 +20,16 @@ pub trait AppState<V: GlowVertexAttribs> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct AppConfig {
     pub title: String,
     pub width: u32,
     pub height: u32,
     pub fullscreen: bool,
+    pub maximized: bool,
     pub vsync: bool,
+    pub decorations: bool,
+    pub transparent: bool,
     pub refresh_on_event: bool,
     pub color: [f32; 3],
 }
@@ -37,7 +41,10 @@ impl Default for AppConfig {
             width: 1024,
             height: 576,
             fullscreen: false,
+            maximized: false,
             vsync: false,
+            decorations: true,
+            transparent: false,
             refresh_on_event: false,
             color: [1.0, 1.0, 1.0],
         }
@@ -65,8 +72,23 @@ impl AppConfig {
         self
     }
 
+    pub fn maximized(mut self, v: bool) -> Self {
+        self.maximized = v;
+        self
+    }
+
     pub fn vsync(mut self, v: bool) -> Self {
         self.vsync = v;
+        self
+    }
+
+    pub fn decorations(mut self, v: bool) -> Self {
+        self.decorations = v;
+        self
+    }
+
+    pub fn transparent(mut self, v: bool) -> Self {
+        self.transparent = v;
         self
     }
 
@@ -103,7 +125,10 @@ impl<V: GlowVertexAttribs> App<V> {
             width,
             height,
             fullscreen,
+            maximized,
             vsync,
+            decorations,
+            transparent,
             refresh_on_event,
             color,
         } = config;
@@ -116,7 +141,10 @@ impl<V: GlowVertexAttribs> App<V> {
         let window_builder = WindowBuilder::new()
             .with_title(title.as_str())
             .with_inner_size(LogicalSize::new(width, height))
-            .with_fullscreen(fullscreen);
+            .with_fullscreen(fullscreen)
+            .with_maximized(maximized)
+            .with_decorations(decorations)
+            .with_transparent(transparent);
         let context_wrapper = unsafe {
             ContextBuilder::new()
                 .with_vsync(vsync)

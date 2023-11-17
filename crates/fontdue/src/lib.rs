@@ -38,6 +38,12 @@ pub struct TextRenderer<UD: Copy = ()> {
     _phantom: PhantomData<fn() -> UD>,
 }
 
+impl<UD: Copy> Default for TextRenderer<UD> {
+    fn default() -> Self {
+        Self::new(1024, 1024)
+    }
+}
+
 impl<UD: Copy> TextRenderer<UD> {
     pub fn new(width: usize, height: usize) -> Self {
         Self {

@@ -1,20 +1,20 @@
 [package]
-name = "spitfire-fontdue"
+name = "spitfire-draw"
 version = "0.10.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
-description = "Fontdue renderer module for Spitfire toolset"
+description = "Drawing helper module for Spitfire toolset"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/PsichiX/spitfire"
 repository = "https://github.com/PsichiX/spitfire"
-documentation = "https://docs.rs/spitfire-fontdue"
+documentation = "https://docs.rs/spitfire-draw"
 readme = "../../README.md"
 
 [dependencies]
 spitfire-core = { version = "0.10", path = "../core" }
+spitfire-glow = { version = "0.10", path = "../glow" }
+spitfire-fontdue = { version = "0.10", path = "../fontdue" }
 bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.7"
-etagere = "0.2"
-
-[dev-dependencies]
-image = { version = "0.24", default-features = false, features = ["png"] }
+vek = "0.16"
+smallvec = "1.11"

@@ -52,6 +52,10 @@ impl<V: Pod, B> VertexStream<V, B> {
         }
     }
 
+    pub fn fork(&self) -> Self {
+        Self::new(self.resize_count)
+    }
+
     pub fn transformed(
         &mut self,
         mut f: impl FnMut(&mut Self),
