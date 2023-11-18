@@ -34,6 +34,7 @@ update:
     cargo update --manifest-path ./crates/glow/Cargo.toml --aggressive
     cargo update --manifest-path ./crates/fontdue/Cargo.toml --aggressive
     cargo update --manifest-path ./crates/draw/Cargo.toml --aggressive
+    cargo update --manifest-path ./crates/input/Cargo.toml --aggressive
 
 example NAME="hello_world":
     cargo run --all-features --example {{NAME}}
@@ -46,5 +47,7 @@ publish:
     cargo publish --no-verify --manifest-path ./crates/fontdue/Cargo.toml
     sleep 1
     cargo publish --no-verify --manifest-path ./crates/draw/Cargo.tom
+    sleep 1
+    cargo publish --no-verify --manifest-path ./crates/input/Cargo.tom
     sleep 1
     cargo publish --no-verify --manifest-path ./crates/_/Cargo.toml
