@@ -1,21 +1,17 @@
 [package]
-name = "spitfire-glow"
+name = "spitfire-input"
 version = "0.11.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
-description = "GLOW renderer module for Spitfire toolset"
+description = "Input module for Spitfire toolset"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/PsichiX/spitfire"
 repository = "https://github.com/PsichiX/spitfire"
-documentation = "https://docs.rs/spitfire-glow"
+documentation = "https://docs.rs/spitfire-input"
 readme = "../../README.md"
-
-[features]
-debug_automatic_glGetError = ["glow/debug_automatic_glGetError"]
 
 [dependencies]
 spitfire-core = { version = "0.11", path = "../core" }
-bytemuck = { version = "1", features = ["derive"] }
-glow = "0.12"
+spitfire-glow = { version = "0.11", path = "../glow" }
 glutin = "0.28"
-vek = "0.16"
+typid = "1"
