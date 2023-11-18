@@ -46,8 +46,8 @@ publish:
     sleep 1
     cargo publish --no-verify --manifest-path ./crates/fontdue/Cargo.toml
     sleep 1
-    cargo publish --no-verify --manifest-path ./crates/draw/Cargo.tom
+    cargo publish --no-verify --manifest-path ./crates/draw/Cargo.toml
     sleep 1
-    cargo publish --no-verify --manifest-path ./crates/input/Cargo.tom
+    cargo publish --no-verify --manifest-path ./crates/input/Cargo.toml
     sleep 1
     cargo publish --no-verify --manifest-path ./crates/_/Cargo.toml
