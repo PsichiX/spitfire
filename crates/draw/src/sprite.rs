@@ -181,17 +181,17 @@ impl Drawable for Sprite {
             |stream| {
                 stream.quad([
                     Vertex {
-                        position: [-offset.x, -offset.y],
+                        position: [0.0, 0.0],
                         uv: [self.region.x, self.region.y, self.page],
                         color,
                     },
                     Vertex {
-                        position: [size.x - offset.x, -offset.y],
+                        position: [size.x, 0.0],
                         uv: [self.region.x + self.region.w, self.region.y, self.page],
                         color,
                     },
                     Vertex {
-                        position: [size.x - offset.x, size.y - offset.y],
+                        position: [size.x, size.y],
                         uv: [
                             self.region.x + self.region.w,
                             self.region.y + self.region.h,
@@ -200,14 +200,14 @@ impl Drawable for Sprite {
                         color,
                     },
                     Vertex {
-                        position: [-offset.x, size.y - offset.y],
+                        position: [0.0, size.y],
                         uv: [self.region.x, self.region.y + self.region.h, self.page],
                         color,
                     },
                 ]);
             },
             |vertex| {
-                let point = transform.mul_point(Vec2::from(vertex.position));
+                let point = transform.mul_point(Vec2::from(vertex.position) - offset);
                 vertex.position[0] = point.x;
                 vertex.position[1] = point.y;
             },

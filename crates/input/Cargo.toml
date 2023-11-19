@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-input"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Input module for Spitfire toolset"
@@ -11,7 +11,5 @@ documentation = "https://docs.rs/spitfire-input"
 readme = "../../README.md"
 
 [dependencies]
-spitfire-core = { version = "0.11", path = "../core" }
-spitfire-glow = { version = "0.11", path = "../glow" }
 glutin = "0.28"
 typid = "1"

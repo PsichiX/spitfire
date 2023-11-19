@@ -1,5 +1,6 @@
 use crate::context::DrawContext;
 use bytemuck::{Pod, Zeroable};
+use fontdue::Font;
 use spitfire_fontdue::TextVertex;
 use spitfire_glow::{
     graphics::{Graphics, Shader, Texture},
@@ -88,3 +89,54 @@ impl<T> From<&'static str> for ResourceRef<T> {
 
 pub type ShaderRef = ResourceRef<Shader>;
 pub type TextureRef = ResourceRef<Texture>;
+
+#[derive(Debug, Default, Clone)]
+pub struct FontMap {
+    keys: Vec<Cow<'static, str>>,
+    values: Vec<Font>,
+}
+
+impl FontMap {
+    pub fn insert(&mut self, name: impl Into<Cow<'static, str>>, font: Font) {
+        let name = name.into();
+        if let Some(index) = self.index_of(&name) {
+            self.values[index] = font;
+        } else {
+            self.keys.push(name);
+            self.values.push(font);
+        }
+    }
+
+    pub fn remove(&mut self, name: &str) -> Option<Font> {
+        if let Some(index) = self.index_of(name) {
+            self.keys.remove(index);
+            Some(self.values.remove(index))
+        } else {
+            None
+        }
+    }
+
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.keys.iter().position(|key| key == name)
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Font> {
+        if let Some(index) = self.index_of(name) {
+            self.values.get(index)
+        } else {
+            None
+        }
+    }
+
+    pub fn keys(&self) -> &[Cow<'static, str>] {
+        &self.keys
+    }
+
+    pub fn values(&self) -> &[Font] {
+        &self.values
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &Font)> {
+        self.keys.iter().zip(self.values.iter())
+    }
+}

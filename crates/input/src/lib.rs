@@ -141,15 +141,26 @@ pub type InputAxisRef = InputRef<InputAxis>;
 pub type InputCharactersRef = InputRef<InputCharacters>;
 pub type InputMappingRef = InputRef<InputMapping>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub enum InputActionOrAxisRef {
+    #[default]
+    None,
     Action(InputActionRef),
     Axis(InputAxisRef),
 }
 
 impl InputActionOrAxisRef {
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    pub fn is_some(&self) -> bool {
+        !self.is_none()
+    }
+
     pub fn get_scalar(&self, falsy: f32, truthy: f32) -> f32 {
         match self {
+            Self::None => falsy,
             Self::Action(action) => action.get().to_scalar(falsy, truthy),
             Self::Axis(axis) => axis.get().0,
         }
@@ -157,6 +168,7 @@ impl InputActionOrAxisRef {
 
     pub fn threshold(&self, value: f32) -> bool {
         match self {
+            Self::None => false,
             Self::Action(action) => action.get().is_down(),
             Self::Axis(axis) => axis.get().threshold(value),
         }
@@ -179,6 +191,12 @@ pub struct InputCombinator<T> {
     mapper: Box<dyn Fn() -> T>,
 }
 
+impl<T: Default> Default for InputCombinator<T> {
+    fn default() -> Self {
+        Self::new(|| T::default())
+    }
+}
+
 impl<T> InputCombinator<T> {
     pub fn new(mapper: impl Fn() -> T + 'static) -> Self {
         Self {
@@ -191,6 +209,7 @@ impl<T> InputCombinator<T> {
     }
 }
 
+#[derive(Default)]
 pub struct CardinalInputCombinator(InputCombinator<[f32; 2]>);
 
 impl CardinalInputCombinator {
@@ -218,6 +237,7 @@ impl CardinalInputCombinator {
     }
 }
 
+#[derive(Default)]
 pub struct DualInputCombinator(InputCombinator<f32>);
 
 impl DualInputCombinator {
@@ -239,12 +259,46 @@ impl DualInputCombinator {
     }
 }
 
+pub struct ArrayInputCombinator<const N: usize>(InputCombinator<[f32; N]>);
+
+impl<const N: usize> Default for ArrayInputCombinator<N> {
+    fn default() -> Self {
+        Self(InputCombinator::new(|| {
+            std::array::from_fn(|_| Default::default())
+        }))
+    }
+}
+
+impl<const N: usize> ArrayInputCombinator<N> {
+    pub fn new(inputs: [impl Into<InputActionOrAxisRef>; N]) -> Self {
+        let mut items = std::array::from_fn::<InputActionOrAxisRef, N, _>(|_| Default::default());
+        for (index, input) in inputs.into_iter().enumerate() {
+            items[index] = input.into();
+        }
+        Self(InputCombinator::new(move || {
+            std::array::from_fn(|index| items[index].get_scalar(0.0, 1.0))
+        }))
+    }
+
+    pub fn get(&self) -> [f32; N] {
+        self.0.get()
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct InputCharacters {
     characters: String,
 }
 
 impl InputCharacters {
+    pub fn read(&self) -> &str {
+        &self.characters
+    }
+
+    pub fn write(&mut self) -> &mut String {
+        &mut self.characters
+    }
+
     pub fn take(&mut self) -> String {
         std::mem::take(&mut self.characters)
     }
@@ -280,14 +334,29 @@ impl From<InputMapping> for InputMappingRef {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct InputContext {
+    pub mouse_wheel_line_scale: f32,
     /// [(id, mapping)]
     mappings_stack: Vec<(ID<InputMapping>, InputMappingRef)>,
     characters: InputCharactersRef,
 }
 
+impl Default for InputContext {
+    fn default() -> Self {
+        Self {
+            mouse_wheel_line_scale: Self::default_mouse_wheel_line_scale(),
+            mappings_stack: Default::default(),
+            characters: Default::default(),
+        }
+    }
+}
+
 impl InputContext {
+    fn default_mouse_wheel_line_scale() -> f32 {
+        10.0
+    }
+
     pub fn push_mapping(&mut self, mapping: impl Into<InputMappingRef>) -> ID<InputMapping> {
         let id = ID::default();
         self.mappings_stack.push((id, mapping.into()));

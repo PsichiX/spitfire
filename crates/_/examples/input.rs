@@ -165,13 +165,6 @@ impl AppState<Vertex> for State {
                 .unwrap(),
         );
 
-        self.draw.shaders.insert(
-            "text".into(),
-            graphics
-                .shader(Shader::TEXT_VERTEX, Shader::TEXT_FRAGMENT)
-                .unwrap(),
-        );
-
         self.draw.textures.insert(
             "ferris".into(),
             load_texture(graphics, "resources/ferris.png"),

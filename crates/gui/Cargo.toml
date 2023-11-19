@@ -1,20 +1,21 @@
 [package]
-name = "spitfire-draw"
+name = "spitfire-gui"
 version = "0.12.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
-description = "Drawing helper module for Spitfire toolset"
+description = "GUI module for Spitfire toolset"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/PsichiX/spitfire"
 repository = "https://github.com/PsichiX/spitfire"
-documentation = "https://docs.rs/spitfire-draw"
+documentation = "https://docs.rs/spitfire-gui"
 readme = "../../README.md"
 
 [dependencies]
-spitfire-core = { version = "0.12", path = "../core" }
 spitfire-glow = { version = "0.12", path = "../glow" }
 spitfire-fontdue = { version = "0.12", path = "../fontdue" }
-bytemuck = { version = "1", features = ["derive"] }
-fontdue = "0.7"
+spitfire-draw = { version = "0.12", path = "../draw" }
+spitfire-input = { version = "0.12", path = "../input" }
+raui-core = "0.55"
+raui-immediate = "0.55"
 vek = "0.16"
-smallvec = "1.11"
+fontdue = "0.7"

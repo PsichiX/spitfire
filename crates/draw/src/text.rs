@@ -2,7 +2,9 @@ use crate::{
     context::DrawContext,
     prelude::{Drawable, ShaderRef, Vertex},
 };
-use fontdue::layout::{CoordinateSystem, Layout, TextStyle};
+use fontdue::layout::{
+    CoordinateSystem, HorizontalAlign, Layout, LayoutSettings, TextStyle, VerticalAlign,
+};
 use spitfire_glow::{
     graphics::{Graphics, GraphicsBatch},
     renderer::{GlowBlending, GlowTextureFiltering, GlowUniformValue},
@@ -12,7 +14,14 @@ use vek::{Mat4, Quaternion, Rgba, Transform, Vec2, Vec3};
 
 pub struct Text {
     pub shader: Option<ShaderRef>,
-    pub text: Layout<Rgba<f32>>,
+    pub font: Cow<'static, str>,
+    pub size: f32,
+    pub text: Cow<'static, str>,
+    pub tint: Rgba<f32>,
+    pub horizontal_align: HorizontalAlign,
+    pub vertical_align: VerticalAlign,
+    pub width: Option<f32>,
+    pub height: Option<f32>,
     pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
     pub transform: Transform<f32, f32, f32>,
     pub blending: Option<GlowBlending>,
@@ -22,7 +31,14 @@ impl Default for Text {
     fn default() -> Self {
         Self {
             shader: Default::default(),
-            text: Layout::new(CoordinateSystem::PositiveYDown),
+            font: Default::default(),
+            size: 32.0,
+            text: Default::default(),
+            tint: Rgba::white(),
+            horizontal_align: HorizontalAlign::Left,
+            vertical_align: VerticalAlign::Top,
+            width: Default::default(),
+            height: Default::default(),
             uniforms: Default::default(),
             transform: Default::default(),
             blending: Default::default(),
@@ -43,13 +59,43 @@ impl Text {
         self
     }
 
-    pub fn text_layout(mut self, value: Layout<Rgba<f32>>) -> Self {
-        self.text = value;
+    pub fn font(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+        self.font = value.into();
         self
     }
 
-    pub fn text_style(mut self, context: &DrawContext, style: &TextStyle<Rgba<f32>>) -> Self {
-        self.text.append(&context.fonts, style);
+    pub fn size(mut self, value: f32) -> Self {
+        self.size = value;
+        self
+    }
+
+    pub fn text(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+        self.text = value.into();
+        self
+    }
+
+    pub fn tint(mut self, value: Rgba<f32>) -> Self {
+        self.tint = value;
+        self
+    }
+
+    pub fn horizontal_align(mut self, value: HorizontalAlign) -> Self {
+        self.horizontal_align = value;
+        self
+    }
+
+    pub fn vertical_align(mut self, value: VerticalAlign) -> Self {
+        self.vertical_align = value;
+        self
+    }
+
+    pub fn width(mut self, value: f32) -> Self {
+        self.width = Some(value);
+        self
+    }
+
+    pub fn height(mut self, value: f32) -> Self {
+        self.height = Some(value);
         self
     }
 
@@ -91,37 +137,60 @@ impl Text {
 
 impl Drawable for Text {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
-        context.text_renderer.include(&context.fonts, &self.text);
-        graphics.stream.batch_optimized(GraphicsBatch {
-            shader: context.shader(self.shader.as_ref()),
-            uniforms: self
-                .uniforms
-                .iter()
-                .map(|(k, v)| (k.clone(), v.to_owned()))
-                .chain(std::iter::once((
-                    "u_projection_view".into(),
-                    GlowUniformValue::M4(graphics.main_camera.matrix().into_col_array()),
-                )))
-                .chain(std::iter::once(("u_image".into(), GlowUniformValue::I1(0))))
-                .collect(),
-            textures: if let Some(texture) = context.fonts_texture() {
-                vec![(texture, GlowTextureFiltering::Linear)]
-            } else {
-                vec![]
-            },
-            blending: GlowBlending::Alpha,
-            scissor: Default::default(),
-        });
-        let transform = Mat4::from(context.top_transform()) * Mat4::from(self.transform);
-        graphics.stream.transformed(
-            |stream| {
-                context.text_renderer.render_to_stream(stream);
-            },
-            |vertex| {
-                let point = transform.mul_point(Vec2::from(vertex.position));
-                vertex.position[0] = point.x;
-                vertex.position[1] = point.y;
-            },
-        );
+        if let Some(index) = context.fonts.index_of(&self.font) {
+            let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+            layout.reset(&LayoutSettings {
+                x: 0.0,
+                y: 0.0,
+                max_width: self.width,
+                max_height: self.height,
+                horizontal_align: self.horizontal_align,
+                vertical_align: self.vertical_align,
+                ..Default::default()
+            });
+            layout.append(
+                context.fonts.values(),
+                &TextStyle {
+                    text: &self.text,
+                    px: self.size,
+                    font_index: index,
+                    user_data: self.tint,
+                },
+            );
+            context
+                .text_renderer
+                .include(context.fonts.values(), &layout);
+            graphics.stream.batch_optimized(GraphicsBatch {
+                shader: context.shader(self.shader.as_ref()),
+                uniforms: self
+                    .uniforms
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.to_owned()))
+                    .chain(std::iter::once((
+                        "u_projection_view".into(),
+                        GlowUniformValue::M4(graphics.main_camera.matrix().into_col_array()),
+                    )))
+                    .chain(std::iter::once(("u_image".into(), GlowUniformValue::I1(0))))
+                    .collect(),
+                textures: if let Some(texture) = context.fonts_texture() {
+                    vec![(texture, GlowTextureFiltering::Linear)]
+                } else {
+                    vec![]
+                },
+                blending: GlowBlending::Alpha,
+                scissor: Default::default(),
+            });
+            let transform = Mat4::from(context.top_transform()) * Mat4::from(self.transform);
+            graphics.stream.transformed(
+                |stream| {
+                    context.text_renderer.render_to_stream(stream);
+                },
+                |vertex| {
+                    let point = transform.mul_point(Vec2::from(vertex.position));
+                    vertex.position[0] = point.x;
+                    vertex.position[1] = point.y;
+                },
+            );
+        }
     }
 }

@@ -246,8 +246,22 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn viewport_offset(&self) -> Vec2<f32> {
+        self.viewport_size * -self.screen_alignment
+    }
+
+    pub fn rectangle(&self) -> Rect<f32, f32> {
+        let offset = self.viewport_offset();
+        Rect {
+            x: offset.x,
+            y: offset.y,
+            w: self.viewport_size.x,
+            h: self.viewport_size.y,
+        }
+    }
+
     pub fn projection_matrix(&self) -> Mat4<f32> {
-        let offset = self.viewport_size * -self.screen_alignment;
+        let offset = self.viewport_offset();
         Mat4::orthographic_without_depth_planes(FrustumPlanes {
             left: offset.x,
             right: self.viewport_size.x + offset.x,
