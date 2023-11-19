@@ -8,41 +8,9 @@ use std::{fs::File, path::Path};
 #[derive(Default)]
 struct State {
     draw: DrawContext,
+    // We store GUI context that stores RAUI application with its engines,
+    // as well as immediate mode context and rendering configuration.
     gui: GuiContext,
-}
-
-impl State {
-    fn draw_gui(&mut self) {
-        vertical_box((), || {
-            content_box((), || {
-                image_box(ImageBoxProps::colored(Color {
-                    r: 0.0,
-                    g: 0.75,
-                    b: 0.0,
-                    a: 1.0,
-                }));
-
-                text_box(TextBoxProps {
-                    text: "Hello World!".to_owned(),
-                    horizontal_align: TextBoxHorizontalAlign::Center,
-                    vertical_align: TextBoxVerticalAlign::Middle,
-                    font: TextBoxFont {
-                        name: "roboto".to_owned(),
-                        size: 64.0,
-                    },
-                    color: Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.75,
-                        a: 1.0,
-                    },
-                    ..Default::default()
-                });
-            });
-
-            image_box(ImageBoxProps::image_aspect_ratio("ferris", false));
-        });
-    }
 }
 
 impl AppState<Vertex> for State {
@@ -92,7 +60,47 @@ impl AppState<Vertex> for State {
         self.draw.push_blending(GlowBlending::Alpha);
 
         self.gui.begin_frame();
-        self.draw_gui();
+
+        // We construct immediate-mode GUI tree using `raui-immediate-widgets`,
+        // a library of RAUI immediate-mode widgets that focus on ergonomics of
+        // defining GUI from code. You can call widget functions as long as it
+        // happen between `GuiContext::begin_frame` and `GuiContext::end_frame`.
+        // Note that you can achieve multi layer screens by having multiple root
+        // widgets present - all of these are children of true root `content_box`
+        // so you can also apply `ContentBoxItemLayout` props to them to layout
+        // them however you like on the screen - it is useful mostly for modals
+        // or floating windows, side panels, etc.
+        vertical_box((), || {
+            content_box((), || {
+                image_box(ImageBoxProps::colored(Color {
+                    r: 0.0,
+                    g: 0.75,
+                    b: 0.0,
+                    a: 1.0,
+                }));
+
+                text_box(TextBoxProps {
+                    text: "Hello World!".to_owned(),
+                    horizontal_align: TextBoxHorizontalAlign::Center,
+                    vertical_align: TextBoxVerticalAlign::Middle,
+                    font: TextBoxFont {
+                        name: "roboto".to_owned(),
+                        size: 64.0,
+                    },
+                    color: Color {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.75,
+                        a: 1.0,
+                    },
+                    ..Default::default()
+                });
+            });
+
+            image_box(ImageBoxProps::image_aspect_ratio("ferris", false));
+        });
+
+        // Here we perform actual rendering of constructed GUI widgets.
         self.gui.end_frame(
             &mut self.draw,
             graphics,
