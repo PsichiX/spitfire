@@ -16,24 +16,10 @@ pub struct GuiRenderer<'a> {
 impl<'a> GuiRenderer<'a> {
     fn draw_node(&mut self, node: &WidgetUnit, mapping: &CoordsMapping, layout: &Layout) {
         match node {
-            WidgetUnit::None => {}
+            WidgetUnit::None | WidgetUnit::PortalBox(_) => {}
             WidgetUnit::AreaBox(node) => {
                 self.draw_node(&node.slot, mapping, layout);
             }
-            WidgetUnit::PortalBox(node) => match &*node.slot {
-                PortalBoxSlot::Slot(node) => {
-                    self.draw_node(node, mapping, layout);
-                }
-                PortalBoxSlot::ContentItem(node) => {
-                    self.draw_node(&node.slot, mapping, layout);
-                }
-                PortalBoxSlot::FlexItem(node) => {
-                    self.draw_node(&node.slot, mapping, layout);
-                }
-                PortalBoxSlot::GridItem(node) => {
-                    self.draw_node(&node.slot, mapping, layout);
-                }
-            },
             WidgetUnit::ContentBox(node) => {
                 for item in &node.items {
                     self.draw_node(&item.slot, mapping, layout);
@@ -145,6 +131,12 @@ impl<'a> GuiRenderer<'a> {
                             } else {
                                 rect
                             };
+                            let tint = Rgba {
+                                r: image.tint.r,
+                                g: image.tint.g,
+                                b: image.tint.b,
+                                a: image.tint.a,
+                            };
                             let mut size = Vec2::new(rect.width(), rect.height());
                             let mut position = Vec2::new(rect.left, rect.top);
                             match &image.scaling {
@@ -155,6 +147,7 @@ impl<'a> GuiRenderer<'a> {
                                         filtering: self.texture_filtering,
                                     })
                                     .shader(self.textured_shader.clone())
+                                    .tint(tint)
                                     .size(size)
                                     .position(position)
                                     .blending(GlowBlending::Alpha)
@@ -178,6 +171,7 @@ impl<'a> GuiRenderer<'a> {
                                         filtering: self.texture_filtering,
                                     })
                                     .shader(self.textured_shader.clone())
+                                    .tint(tint)
                                     .size(size)
                                     .position(position)
                                     .pivot(0.5.into())

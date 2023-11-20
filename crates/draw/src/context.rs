@@ -115,6 +115,13 @@ impl DrawContext {
         self.shaders_stack.last().cloned()
     }
 
+    pub fn with_shader<R>(&mut self, shader: &ShaderRef, mut f: impl FnMut() -> R) -> R {
+        self.push_shader(shader);
+        let result = f();
+        self.pop_shader();
+        result
+    }
+
     pub fn push_transform(&mut self, transform: Transform<f32, f32, f32>) {
         self.transform_stack.push(transform);
     }
@@ -127,6 +134,17 @@ impl DrawContext {
         self.transform_stack.last().copied().unwrap_or_default()
     }
 
+    pub fn with_transform<R>(
+        &mut self,
+        transform: Transform<f32, f32, f32>,
+        mut f: impl FnMut() -> R,
+    ) -> R {
+        self.push_transform(transform);
+        let result = f();
+        self.pop_transform();
+        result
+    }
+
     pub fn push_blending(&mut self, blending: GlowBlending) {
         self.blending_stack.push(blending);
     }
@@ -137,5 +155,12 @@ impl DrawContext {
 
     pub fn top_blending(&self) -> GlowBlending {
         self.blending_stack.last().copied().unwrap_or_default()
+    }
+
+    pub fn with_blending<R>(&mut self, blending: GlowBlending, mut f: impl FnMut() -> R) -> R {
+        self.push_blending(blending);
+        let result = f();
+        self.pop_blending();
+        result
     }
 }

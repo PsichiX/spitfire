@@ -367,6 +367,10 @@ impl InputContext {
         self.mappings_stack.pop().map(|(_, mapping)| mapping)
     }
 
+    pub fn top_mapping(&self) -> Option<&InputMappingRef> {
+        self.mappings_stack.last().map(|(_, mapping)| mapping)
+    }
+
     pub fn remove_mapping(&mut self, id: ID<InputMapping>) -> Option<InputMappingRef> {
         self.mappings_stack
             .iter()

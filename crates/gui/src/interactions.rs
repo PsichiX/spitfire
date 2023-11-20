@@ -29,6 +29,7 @@ pub struct GuiInteractionsInputs {
 pub struct GuiInteractionsEngine {
     pub inputs: GuiInteractionsInputs,
     pub engine: DefaultInteractionsEngine,
+    cached_pointer_position: Vec2,
 }
 
 impl GuiInteractionsEngine {
@@ -120,7 +121,10 @@ impl GuiInteractionsEngine {
         let pointer_position = {
             let [x, y] = self.inputs.pointer_position.get();
             let position = Vec2 { x, y };
-            if x.abs() > ZERO_THRESHOLD || y.abs() > ZERO_THRESHOLD {
+            if (position.x - self.cached_pointer_position.x).abs() > ZERO_THRESHOLD
+                || (position.y - self.cached_pointer_position.y).abs() > ZERO_THRESHOLD
+            {
+                self.cached_pointer_position = position;
                 self.engine.interact(Interaction::PointerMove(
                     mapping.real_to_virtual_vec2(position, false),
                 ));

@@ -10,8 +10,8 @@ use vek::{Transform, Vec3};
 pub struct GuiContext {
     pub coords_map_scaling: CoordsMappingScaling,
     pub texture_filtering: GlowTextureFiltering,
+    pub interactions: GuiInteractionsEngine,
     application: Application,
-    interactions: GuiInteractionsEngine,
     text_renderer: TextRenderer<Color>,
     immediate: ImmediateContext,
     timer: Instant,
@@ -23,8 +23,8 @@ impl Default for GuiContext {
         Self {
             coords_map_scaling: Default::default(),
             texture_filtering: Default::default(),
-            application: Default::default(),
             interactions: Default::default(),
+            application: Default::default(),
             text_renderer: Default::default(),
             immediate: Default::default(),
             timer: Instant::now(),
@@ -34,6 +34,10 @@ impl Default for GuiContext {
 }
 
 impl GuiContext {
+    pub fn mark_dirty(&mut self) {
+        self.application.mark_dirty();
+    }
+
     pub fn begin_frame(&self) {
         ImmediateContext::activate(&self.immediate);
         begin();
