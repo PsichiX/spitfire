@@ -2,7 +2,7 @@ use bytemuck::{checked::cast_slice, Pod};
 use glow::{
     Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND, DST_COLOR,
     ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, LUMINANCE, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, RGB,
-    RGBA, RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D,
+    RGBA, RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D_ARRAY,
     TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TRIANGLES, UNSIGNED_INT, ZERO,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
@@ -188,12 +188,8 @@ impl GlowBatch {
                 if data_prev.map(|prev| prev != data).unwrap_or(true) {
                     let (texture, target, min_filter, mag_filter) = data;
                     context.bind_texture(*target, Some(*texture));
-                    if data_prev.map(|prev| prev.2 != *min_filter).unwrap_or(true) {
-                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, *min_filter);
-                    }
-                    if data_prev.map(|prev| prev.2 != *mag_filter).unwrap_or(true) {
-                        context.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, *mag_filter);
-                    }
+                    context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MIN_FILTER, *min_filter);
+                    context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, *mag_filter);
                 }
             }
             if self.blending != prev.blending {

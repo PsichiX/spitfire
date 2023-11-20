@@ -18,6 +18,12 @@ enum Element {
     Grass,
 }
 
+impl Element {
+    fn iter() -> impl Iterator<Item = Self> {
+        [Self::Fire, Self::Water, Self::Grass].into_iter()
+    }
+}
+
 // Used for converting randomly generated index to element
 // for enemy move selection.
 impl From<usize> for Element {
@@ -221,9 +227,9 @@ impl State {
         match &self.game_state {
             GameState::SelectMove => {
                 horizontal_box((), || {
-                    self.element_button(Element::Fire);
-                    self.element_button(Element::Water);
-                    self.element_button(Element::Grass);
+                    for element in Element::iter() {
+                        self.element_button(element);
+                    }
                 });
             }
             GameState::TurnResult { player, enemy } => {
@@ -245,13 +251,7 @@ impl State {
                             r: 1.0,
                             g: 1.0,
                             b: 1.0,
-                            a: if state.state.trigger {
-                                0.5
-                            } else if state.state.selected {
-                                0.75
-                            } else {
-                                1.0
-                            },
+                            a: if state.state.selected { 0.75 } else { 1.0 },
                         },
                         ..Default::default()
                     });
@@ -316,9 +316,7 @@ impl State {
     fn element_button(&mut self, element: Element) {
         let response = button(NavItemActive, |state| {
             let mut tint: Color = element.into();
-            if state.state.trigger {
-                tint.a = 0.5;
-            } else if state.state.selected {
+            if state.state.selected {
                 tint.a = 0.75;
             }
 
@@ -398,7 +396,6 @@ impl AppState<Vertex> for State {
         self.load_font("roboto", "resources/Roboto-Regular.ttf");
 
         self.gui.interactions.engine.deselect_when_no_button_found = true;
-        // TODO: figure out why GUI still uses nearest filtering for element icons.
         self.gui.texture_filtering = GlowTextureFiltering::Linear;
 
         // Define input actions and axes that will be used by GUI.

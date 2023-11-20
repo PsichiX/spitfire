@@ -37,7 +37,7 @@ update:
     cargo update --manifest-path ./crates/input/Cargo.toml --aggressive
     cargo update --manifest-path ./crates/gui/Cargo.toml --aggressive
 
-example NAME="hello_world":
+example NAME="game":
     cargo run --all-features --example {{NAME}}
 
 publish:
