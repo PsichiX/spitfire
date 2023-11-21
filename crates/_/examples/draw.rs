@@ -1,19 +1,47 @@
 use fontdue::Font;
+use rand::Rng;
 use spitfire_draw::prelude::*;
 use spitfire_glow::prelude::*;
-use std::{fs::File, path::Path};
+use std::{fs::File, ops::Range, path::Path, time::Instant};
+use vek::{Rgba, Transform, Vec2};
 
-#[derive(Default)]
+const DELTA_TIME: f32 = 1.0 / 60.0;
+
 struct State {
     // We store drawing context for later use in app state.
     // Drawing context holds resources and stack-based states.
     context: DrawContext,
+    // We also store particle system instance that stores particle
+    // data used for emitting particles to render.
+    particles: ParticleSystem<ParticlesProcessor, ParticleData, ()>,
+    // This tells the angular location of particles spawner.
+    particles_phase: f32,
+    // Timer used for fixed step frame particle system simulation.
+    timer: Instant,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            context: Default::default(),
+            particles: ParticleSystem::new((), 100),
+            particles_phase: 0.0,
+            timer: Instant::now(),
+        }
+    }
 }
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
         graphics.color = [0.25, 0.25, 0.25];
         graphics.main_camera.screen_alignment = 0.5.into();
+
+        self.context.shaders.insert(
+            "color".into(),
+            graphics
+                .shader(Shader::COLORED_VERTEX_2D, Shader::PASS_FRAGMENT)
+                .unwrap(),
+        );
 
         self.context.shaders.insert(
             "image".into(),
@@ -49,6 +77,22 @@ impl AppState<Vertex> for State {
     }
 
     fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>) {
+        // Here we emulate fixed step simulation.
+        if self.timer.elapsed().as_secs_f32() > DELTA_TIME {
+            self.timer = Instant::now();
+
+            // Update particles in particle system and spawn new ones.
+            self.particles.process();
+            self.particles_phase += DELTA_TIME * 2.0;
+            self.particles.push(ParticleData::new(
+                1.0..2.0,
+                50.0..100.0,
+                20.0..30.0,
+                Vec2::new(self.particles_phase.sin(), self.particles_phase.cos()) * 200.0,
+                Rgba::new_opaque(1.0, 1.0, 0.0),
+            ));
+        }
+
         // Each scene draw phase should start with `DrawContext::begin_frame`
         // and should end with `DrawContext::end_frame`.
         self.context.begin_frame(graphics);
@@ -60,10 +104,11 @@ impl AppState<Vertex> for State {
 
         // Nine slices are renderables that split sprite into its
         // frame and content. Useful for stretching GUI panels.
-        NineSliceSprite::single(SpriteTexture::new(
-            "u_image".into(),
-            TextureRef::name("checkerboard"),
-        ))
+        NineSliceSprite::single(SpriteTexture {
+            sampler: "u_image".into(),
+            texture: TextureRef::name("checkerboard"),
+            filtering: GlowTextureFiltering::Nearest,
+        })
         .size(512.0.into())
         .pivot(0.5.into())
         .margins_source(0.25.into())
@@ -92,12 +137,81 @@ impl AppState<Vertex> for State {
             .position([-450.0, 170.0].into())
             .draw(&mut self.context, graphics);
 
+        // Drawing particles is done with emitter that defines how
+        // to render them, and expects iterator of particle instances
+        // provided by some source of data, here we use particle system.
+        ParticleEmitter::default()
+            .shader(ShaderRef::name("color"))
+            .emit(self.particles.emit())
+            .draw(&mut self.context, graphics);
+
         self.context.end_frame();
     }
 }
 
 fn main() {
     App::<Vertex>::default().run::<State>(State::default());
+}
+
+struct ParticleData {
+    size: f32,
+    position: Vec2<f32>,
+    velocity: Vec2<f32>,
+    color: Rgba<f32>,
+    lifetime: f32,
+    lifetime_max: f32,
+}
+
+impl ParticleData {
+    fn new(
+        lifetime: Range<f32>,
+        speed: Range<f32>,
+        size: Range<f32>,
+        position: Vec2<f32>,
+        color: Rgba<f32>,
+    ) -> Self {
+        let lifetime = rand::thread_rng().gen_range(lifetime);
+        let speed = rand::thread_rng().gen_range(speed);
+        let size = rand::thread_rng().gen_range(size);
+        let angle = rand::thread_rng().gen_range(0.0_f32..360.0).to_radians();
+        Self {
+            size,
+            position,
+            velocity: Vec2::new(angle.cos(), angle.sin()) * speed,
+            color,
+            lifetime,
+            lifetime_max: lifetime,
+        }
+    }
+}
+
+struct ParticlesProcessor;
+
+// Particle processor tells particle system how to process particle
+// data and how to emit particle instance out of them.
+impl ParticleSystemProcessor<ParticleData, ()> for ParticlesProcessor {
+    fn process(_: &(), mut data: ParticleData) -> Option<ParticleData> {
+        data.lifetime -= DELTA_TIME;
+        if data.lifetime >= 0.0 {
+            data.position += data.velocity * DELTA_TIME;
+            data.color.a = data.lifetime / data.lifetime_max;
+            Some(data)
+        } else {
+            None
+        }
+    }
+
+    fn emit(_: &(), data: &ParticleData) -> Option<ParticleInstance> {
+        Some(ParticleInstance {
+            tint: data.color,
+            transform: Transform {
+                position: data.position.into(),
+                ..Default::default()
+            },
+            size: data.size.into(),
+            ..Default::default()
+        })
+    }
 }
 
 // Unfortunatelly, or fortunatelly, images loading is not part of
