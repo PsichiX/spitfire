@@ -450,7 +450,7 @@ impl AppState<Vertex> for State {
 }
 
 fn main() {
-    App::<Vertex>::default().run::<State>(State::default());
+    App::<Vertex>::default().run(State::default());
 }
 
 #[test]

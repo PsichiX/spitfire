@@ -114,7 +114,7 @@ impl AppState<Vertex> for State {
 }
 
 fn main() {
-    App::<Vertex>::default().run::<State>(State::default());
+    App::<Vertex>::default().run(State::default());
 }
 
 fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>) -> Texture {

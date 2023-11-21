@@ -175,7 +175,7 @@ impl AppState<Vertex> for State {
 fn main() {
     // App can be parameterized with AppConfig, here we just
     // use default and run it with our app state.
-    App::<Vertex>::default().run::<State>(State::default());
+    App::<Vertex>::default().run(State::default());
 }
 
 fn texture_quad(texture: &Texture) -> [Vertex; 4] {
