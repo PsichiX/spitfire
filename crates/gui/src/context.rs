@@ -5,7 +5,6 @@ use spitfire_draw::prelude::*;
 use spitfire_fontdue::*;
 use spitfire_glow::prelude::*;
 use std::time::Instant;
-use vek::{Transform, Vec3};
 
 pub struct GuiContext {
     pub coords_map_scaling: CoordsMappingScaling,
@@ -63,9 +62,9 @@ impl GuiContext {
         let coords_mapping = CoordsMapping::new_scaling(
             Rect {
                 left: 0.0,
-                right: graphics.main_camera.viewport_size.x,
+                right: graphics.main_camera.screen_size.x,
                 top: 0.0,
-                bottom: graphics.main_camera.viewport_size.y,
+                bottom: graphics.main_camera.screen_size.y,
             },
             self.coords_map_scaling,
         );
@@ -77,15 +76,6 @@ impl GuiContext {
         self.interactions.maintain(&coords_mapping);
         let _ = self.application.interact(&mut self.interactions);
         self.application.consume_signals();
-        let offset = graphics.main_camera.viewport_offset();
-        draw.push_transform(Transform {
-            position: Vec3 {
-                x: offset.x,
-                y: offset.y,
-                z: 0.0,
-            },
-            ..Default::default()
-        });
         let mut renderer = GuiRenderer {
             texture_filtering: self.texture_filtering,
             draw,
@@ -95,7 +85,6 @@ impl GuiContext {
             text_shader,
         };
         let _ = self.application.render(&coords_mapping, &mut renderer);
-        draw.pop_transform();
         let [w, h, d] = self.text_renderer.atlas_size();
         if let Some(texture) = self.glyphs_texture.as_mut() {
             texture.upload(

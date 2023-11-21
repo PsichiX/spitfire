@@ -197,8 +197,8 @@ impl<V: GlowVertexAttribs> App<V> {
                                 .unwrap()
                                 .viewport(0, 0, width as _, height as _);
                         }
-                        graphics.main_camera.viewport_size.x = width as _;
-                        graphics.main_camera.viewport_size.y = height as _;
+                        graphics.main_camera.screen_size.x = width as _;
+                        graphics.main_camera.screen_size.y = height as _;
                         graphics.prepare_frame();
                         state.on_redraw(&mut graphics);
                         let _ = graphics.draw();

@@ -19,7 +19,7 @@ pub mod prelude {
     #[cfg(feature = "glow")]
     pub use spitfire_glow::prelude::*;
     #[cfg(feature = "gui")]
-    pub use spitfire_gui::*;
+    pub use spitfire_gui::prelude::*;
     #[cfg(feature = "input")]
     pub use spitfire_input::*;
 }

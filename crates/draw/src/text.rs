@@ -25,6 +25,7 @@ pub struct Text {
     pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
     pub transform: Transform<f32, f32, f32>,
     pub blending: Option<GlowBlending>,
+    pub screen_space: bool,
 }
 
 impl Default for Text {
@@ -42,6 +43,7 @@ impl Default for Text {
             uniforms: Default::default(),
             transform: Default::default(),
             blending: Default::default(),
+            screen_space: Default::default(),
         }
     }
 }
@@ -133,6 +135,11 @@ impl Text {
         self.blending = Some(value);
         self
     }
+
+    pub fn screen_space(mut self, value: bool) -> Self {
+        self.screen_space = value;
+        self
+    }
 }
 
 impl Drawable for Text {
@@ -168,7 +175,14 @@ impl Drawable for Text {
                     .map(|(k, v)| (k.clone(), v.to_owned()))
                     .chain(std::iter::once((
                         "u_projection_view".into(),
-                        GlowUniformValue::M4(graphics.main_camera.matrix().into_col_array()),
+                        GlowUniformValue::M4(
+                            if self.screen_space {
+                                graphics.main_camera.screen_matrix()
+                            } else {
+                                graphics.main_camera.world_matrix()
+                            }
+                            .into_col_array(),
+                        ),
                     )))
                     .chain(std::iter::once(("u_image".into(), GlowUniformValue::I1(0))))
                     .collect(),

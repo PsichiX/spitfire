@@ -44,6 +44,7 @@ pub struct Sprite {
     pub size: Option<Vec2<f32>>,
     pub pivot: Vec2<f32>,
     pub blending: Option<GlowBlending>,
+    pub screen_space: bool,
 }
 
 impl Default for Sprite {
@@ -59,6 +60,7 @@ impl Default for Sprite {
             size: Default::default(),
             pivot: Default::default(),
             blending: Default::default(),
+            screen_space: Default::default(),
         }
     }
 }
@@ -136,6 +138,11 @@ impl Sprite {
         self.blending = Some(value);
         self
     }
+
+    pub fn screen_space(mut self, value: bool) -> Self {
+        self.screen_space = value;
+        self
+    }
 }
 
 impl Drawable for Sprite {
@@ -148,7 +155,14 @@ impl Drawable for Sprite {
                 .map(|(k, v)| (k.clone(), v.to_owned()))
                 .chain(std::iter::once((
                     "u_projection_view".into(),
-                    GlowUniformValue::M4(graphics.main_camera.matrix().into_col_array()),
+                    GlowUniformValue::M4(
+                        if self.screen_space {
+                            graphics.main_camera.screen_matrix()
+                        } else {
+                            graphics.main_camera.world_matrix()
+                        }
+                        .into_col_array(),
+                    ),
                 )))
                 .chain(self.textures.iter().enumerate().map(|(index, texture)| {
                     (texture.sampler.clone(), GlowUniformValue::I1(index as _))

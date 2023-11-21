@@ -239,45 +239,100 @@ impl<V: GlowVertexAttribs> Graphics<V> {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
+pub enum CameraScaling {
+    #[default]
+    None,
+    FitHorizontal(f32),
+    FitVertical(f32),
+}
+
+impl CameraScaling {
+    pub fn world_size(self, viewport_size: Vec2<f32>) -> Vec2<f32> {
+        match self {
+            Self::None => viewport_size,
+            Self::FitHorizontal(value) => Vec2 {
+                x: value,
+                y: value * viewport_size.y / viewport_size.x,
+            },
+            Self::FitVertical(value) => Vec2 {
+                x: value * viewport_size.x / viewport_size.y,
+                y: value,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Camera {
     pub screen_alignment: Vec2<f32>,
-    pub viewport_size: Vec2<f32>,
+    pub screen_size: Vec2<f32>,
+    pub scaling: CameraScaling,
     pub transform: Transform<f32, f32, f32>,
 }
 
 impl Camera {
-    pub fn viewport_offset(&self) -> Vec2<f32> {
-        self.viewport_size * -self.screen_alignment
-    }
-
-    pub fn rectangle(&self) -> Rect<f32, f32> {
-        let offset = self.viewport_offset();
+    pub fn screen_rectangle(&self) -> Rect<f32, f32> {
         Rect {
-            x: offset.x,
-            y: offset.y,
-            w: self.viewport_size.x,
-            h: self.viewport_size.y,
+            x: 0.0,
+            y: 0.0,
+            w: self.screen_size.x,
+            h: self.screen_size.y,
         }
     }
 
-    pub fn projection_matrix(&self) -> Mat4<f32> {
-        let offset = self.viewport_offset();
+    pub fn screen_projection_matrix(&self) -> Mat4<f32> {
         Mat4::orthographic_without_depth_planes(FrustumPlanes {
-            left: offset.x,
-            right: self.viewport_size.x + offset.x,
-            top: offset.y,
-            bottom: self.viewport_size.y + offset.y,
+            left: 0.0,
+            right: self.screen_size.x,
+            top: 0.0,
+            bottom: self.screen_size.y,
             near: -1.0,
             far: 1.0,
         })
     }
 
-    pub fn view_matrix(&self) -> Mat4<f32> {
+    pub fn screen_matrix(&self) -> Mat4<f32> {
+        self.screen_projection_matrix()
+    }
+
+    pub fn world_size(&self) -> Vec2<f32> {
+        self.scaling.world_size(self.screen_size)
+    }
+
+    pub fn world_offset(&self) -> Vec2<f32> {
+        self.world_size() * -self.screen_alignment
+    }
+
+    pub fn world_rectangle(&self) -> Rect<f32, f32> {
+        let size = self.world_size();
+        let offset = size * -self.screen_alignment;
+        Rect {
+            x: offset.x,
+            y: offset.y,
+            w: size.x,
+            h: size.y,
+        }
+    }
+
+    pub fn world_projection_matrix(&self) -> Mat4<f32> {
+        let size = self.world_size();
+        let offset = size * -self.screen_alignment;
+        Mat4::orthographic_without_depth_planes(FrustumPlanes {
+            left: offset.x,
+            right: size.x + offset.x,
+            top: offset.y,
+            bottom: size.y + offset.y,
+            near: -1.0,
+            far: 1.0,
+        })
+    }
+
+    pub fn world_view_matrix(&self) -> Mat4<f32> {
         Mat4::from(self.transform).inverted()
     }
 
-    pub fn matrix(&self) -> Mat4<f32> {
-        self.projection_matrix() * self.view_matrix()
+    pub fn world_matrix(&self) -> Mat4<f32> {
+        self.world_projection_matrix() * self.world_view_matrix()
     }
 }
 

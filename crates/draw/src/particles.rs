@@ -11,23 +11,13 @@ use spitfire_glow::{
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, marker::PhantomData};
 use vek::{Mat4, Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct ParticleEmitter {
     pub shader: Option<ShaderRef>,
     pub textures: SmallVec<[SpriteTexture; 4]>,
     pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
     pub blending: Option<GlowBlending>,
-}
-
-impl Default for ParticleEmitter {
-    fn default() -> Self {
-        Self {
-            shader: Default::default(),
-            textures: Default::default(),
-            uniforms: Default::default(),
-            blending: Default::default(),
-        }
-    }
+    pub screen_space: bool,
 }
 
 impl ParticleEmitter {
@@ -55,6 +45,11 @@ impl ParticleEmitter {
 
     pub fn blending(mut self, value: GlowBlending) -> Self {
         self.blending = Some(value);
+        self
+    }
+
+    pub fn screen_space(mut self, value: bool) -> Self {
+        self.screen_space = value;
         self
     }
 
@@ -157,7 +152,14 @@ impl<'a, I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'a,
                 .map(|(k, v)| (k.clone(), v.to_owned()))
                 .chain(std::iter::once((
                     "u_projection_view".into(),
-                    GlowUniformValue::M4(graphics.main_camera.matrix().into_col_array()),
+                    GlowUniformValue::M4(
+                        if self.emitter.screen_space {
+                            graphics.main_camera.screen_matrix()
+                        } else {
+                            graphics.main_camera.world_matrix()
+                        }
+                        .into_col_array(),
+                    ),
                 )))
                 .chain(
                     self.emitter
@@ -260,6 +262,10 @@ impl<P: ParticleSystemProcessor<D, C>, D, C> ParticleSystem<P, D, C> {
 
     pub fn len(&self) -> usize {
         self.source.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.source.is_empty()
     }
 
     pub fn push(&mut self, data: D) {

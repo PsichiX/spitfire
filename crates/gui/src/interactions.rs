@@ -120,14 +120,12 @@ impl GuiInteractionsEngine {
         }
         let pointer_position = {
             let [x, y] = self.inputs.pointer_position.get();
-            let position = Vec2 { x, y };
+            let position = mapping.real_to_virtual_vec2(Vec2 { x, y }, false);
             if (position.x - self.cached_pointer_position.x).abs() > ZERO_THRESHOLD
                 || (position.y - self.cached_pointer_position.y).abs() > ZERO_THRESHOLD
             {
                 self.cached_pointer_position = position;
-                self.engine.interact(Interaction::PointerMove(
-                    mapping.real_to_virtual_vec2(position, false),
-                ));
+                self.engine.interact(Interaction::PointerMove(position));
             }
             position
         };

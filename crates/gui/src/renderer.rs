@@ -59,6 +59,7 @@ impl<'a> GuiRenderer<'a> {
                                         .size(size)
                                         .position(position)
                                         .blending(GlowBlending::Alpha)
+                                        .screen_space(true)
                                         .draw(self.draw, self.graphics);
                                 }
                                 ImageBoxImageScaling::Frame(frame) => {
@@ -93,6 +94,7 @@ impl<'a> GuiRenderer<'a> {
                                             bottom: frame.destination.bottom,
                                         })
                                         .frame_only(frame.frame_only)
+                                        .screen_space(true)
                                         .draw(self.draw, self.graphics);
                                 }
                             }
@@ -147,10 +149,28 @@ impl<'a> GuiRenderer<'a> {
                                         filtering: self.texture_filtering,
                                     })
                                     .shader(self.textured_shader.clone())
+                                    .region_page(
+                                        image
+                                            .source_rect
+                                            .map(|rect| vek::Rect {
+                                                x: rect.left,
+                                                y: rect.top,
+                                                w: rect.width(),
+                                                h: rect.height(),
+                                            })
+                                            .unwrap_or_else(|| vek::Rect {
+                                                x: 0.0,
+                                                y: 0.0,
+                                                w: 1.0,
+                                                h: 1.0,
+                                            }),
+                                        0.0,
+                                    )
                                     .tint(tint)
                                     .size(size)
                                     .position(position)
                                     .blending(GlowBlending::Alpha)
+                                    .screen_space(true)
                                     .draw(self.draw, self.graphics);
                                 }
                                 ImageBoxImageScaling::Frame(frame) => {
@@ -189,6 +209,7 @@ impl<'a> GuiRenderer<'a> {
                                         bottom: frame.destination.bottom,
                                     })
                                     .frame_only(frame.frame_only)
+                                    .screen_space(true)
                                     .draw(self.draw, self.graphics);
                                 }
                             }
@@ -228,6 +249,7 @@ impl<'a> GuiRenderer<'a> {
                         .position(Vec2::new(rect.left, rect.top))
                         .width(rect.width())
                         .height(rect.height())
+                        .screen_space(true)
                         .draw(self.draw, self.graphics);
                 }
             }

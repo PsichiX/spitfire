@@ -126,7 +126,7 @@ impl AppState<Vertex> for State {
         let mut uniforms = HashMap::default();
         uniforms.insert(
             "u_projection_view".into(),
-            GlowUniformValue::M4(graphics.main_camera.matrix().into_col_array()),
+            GlowUniformValue::M4(graphics.main_camera.world_matrix().into_col_array()),
         );
         uniforms.insert("u_image".into(), GlowUniformValue::I1(0));
 

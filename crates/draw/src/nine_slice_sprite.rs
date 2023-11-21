@@ -83,6 +83,7 @@ pub struct NineSliceSprite {
     pub size: Option<Vec2<f32>>,
     pub pivot: Vec2<f32>,
     pub blending: Option<GlowBlending>,
+    pub screen_space: bool,
 }
 
 impl Default for NineSliceSprite {
@@ -101,6 +102,7 @@ impl Default for NineSliceSprite {
             size: Default::default(),
             pivot: Default::default(),
             blending: Default::default(),
+            screen_space: Default::default(),
         }
     }
 }
@@ -193,6 +195,11 @@ impl NineSliceSprite {
         self.blending = Some(value);
         self
     }
+
+    pub fn screen_space(mut self, value: bool) -> Self {
+        self.screen_space = value;
+        self
+    }
 }
 
 impl Drawable for NineSliceSprite {
@@ -205,7 +212,14 @@ impl Drawable for NineSliceSprite {
                 .map(|(k, v)| (k.clone(), v.to_owned()))
                 .chain(std::iter::once((
                     "u_projection_view".into(),
-                    GlowUniformValue::M4(graphics.main_camera.matrix().into_col_array()),
+                    GlowUniformValue::M4(
+                        if self.screen_space {
+                            graphics.main_camera.screen_matrix()
+                        } else {
+                            graphics.main_camera.world_matrix()
+                        }
+                        .into_col_array(),
+                    ),
                 )))
                 .chain(self.textures.iter().enumerate().map(|(index, texture)| {
                     (texture.sampler.clone(), GlowUniformValue::I1(index as _))
