@@ -85,7 +85,10 @@ impl<UD: Copy> TextRenderer<UD> {
                             Some((
                                 page,
                                 atlas
-                                    .allocate(size2(metrics.width as _, metrics.height as _))?
+                                    .allocate(size2(
+                                        metrics.width as i32 + 1,
+                                        metrics.height as i32 + 1,
+                                    ))?
                                     .rectangle
                                     .to_rect()
                                     .origin
@@ -98,7 +101,10 @@ impl<UD: Copy> TextRenderer<UD> {
                             let mut atlas = AtlasAllocator::new(size2(w as _, h as _));
                             let page = self.atlases.len();
                             let origin = atlas
-                                .allocate(size2(metrics.width as _, metrics.height as _))?
+                                .allocate(size2(
+                                    metrics.width as i32 + 1,
+                                    metrics.height as i32 + 1,
+                                ))?
                                 .rectangle
                                 .to_rect()
                                 .origin
