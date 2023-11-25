@@ -30,6 +30,8 @@ pub struct AppConfig {
     pub vsync: bool,
     pub decorations: bool,
     pub transparent: bool,
+    pub double_buffer: Option<bool>,
+    pub hardware_acceleration: Option<bool>,
     pub refresh_on_event: bool,
     pub color: [f32; 3],
 }
@@ -45,6 +47,8 @@ impl Default for AppConfig {
             vsync: false,
             decorations: true,
             transparent: false,
+            double_buffer: None,
+            hardware_acceleration: Some(true),
             refresh_on_event: false,
             color: [1.0, 1.0, 1.0],
         }
@@ -92,6 +96,16 @@ impl AppConfig {
         self
     }
 
+    pub fn double_buffer(mut self, v: Option<bool>) -> Self {
+        self.double_buffer = v;
+        self
+    }
+
+    pub fn hardware_acceleration(mut self, v: Option<bool>) -> Self {
+        self.hardware_acceleration = v;
+        self
+    }
+
     pub fn refresh_on_event(mut self, v: bool) -> Self {
         self.refresh_on_event = v;
         self
@@ -129,6 +143,8 @@ impl<V: GlowVertexAttribs> App<V> {
             vsync,
             decorations,
             transparent,
+            double_buffer,
+            hardware_acceleration,
             refresh_on_event,
             color,
         } = config;
@@ -148,8 +164,8 @@ impl<V: GlowVertexAttribs> App<V> {
         let context_wrapper = unsafe {
             ContextBuilder::new()
                 .with_vsync(vsync)
-                .with_double_buffer(Some(true))
-                .with_hardware_acceleration(Some(true))
+                .with_double_buffer(double_buffer)
+                .with_hardware_acceleration(hardware_acceleration)
                 .build_windowed(window_builder, &event_loop)
                 .expect("Could not build windowed context wrapper!")
                 .make_current()
