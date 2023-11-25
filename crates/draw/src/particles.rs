@@ -61,7 +61,7 @@ impl ParticleEmitter {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ParticleInstance {
     pub region: Rect<f32, f32>,
     pub page: f32,

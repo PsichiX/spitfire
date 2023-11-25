@@ -11,6 +11,10 @@ struct State {
     // We store drawing context for later use in app state.
     // Drawing context holds resources and stack-based states.
     context: DrawContext,
+    // Tile maps store IDs 2D array of single tiles layer.
+    tilemap: TileMap,
+    // Tile sets store mappings from ID to texture region.
+    tileset: TileSet,
     // We also store particle system instance that stores particle
     // data used for emitting particles to render.
     particles: ParticleSystem<ParticlesProcessor, ParticleData, ()>,
@@ -24,6 +28,16 @@ impl Default for State {
     fn default() -> Self {
         Self {
             context: Default::default(),
+            tilemap: TileMap::with_buffer(
+                [6, 6].into(),
+                (0..36).map(|_| rand::random::<usize>() % 11).collect(),
+            )
+            .unwrap(),
+            tileset: TileSet {
+                mappings: (0..11)
+                    .map(|index| (index, TileSetItem::default().page(index as f32)))
+                    .collect(),
+            },
             particles: ParticleSystem::new((), 100),
             particles_phase: 0.0,
             timer: Instant::now(),
@@ -59,7 +73,12 @@ impl AppState<Vertex> for State {
 
         self.context.textures.insert(
             "ferris".into(),
-            load_texture(graphics, "resources/ferris.png"),
+            load_texture(graphics, "resources/ferris.png", 1),
+        );
+
+        self.context.textures.insert(
+            "tileset".into(),
+            load_texture(graphics, "resources/tileset.png", 11),
         );
 
         self.context
@@ -101,6 +120,19 @@ impl AppState<Vertex> for State {
         // no default blending, so we should push those.
         self.context.push_shader(&ShaderRef::name("image"));
         self.context.push_blending(GlowBlending::Alpha);
+
+        // Tile maps are rendered by emitting tiles with iterators.
+        // Here TileMap container is providing tiles it stores.
+        TilesEmitter::single(SpriteTexture {
+            sampler: "u_image".into(),
+            texture: TextureRef::name("tileset"),
+            filtering: GlowTextureFiltering::Nearest,
+        })
+        .shader(ShaderRef::name("image"))
+        .tile_size(64.0.into())
+        .position([-192.0, -192.0].into())
+        .emit(&self.tileset, self.tilemap.emit())
+        .draw(&mut self.context, graphics);
 
         // Nine slices are renderables that split sprite into its
         // frame and content. Useful for stretching GUI panels.
@@ -216,7 +248,7 @@ impl ParticleSystemProcessor<ParticleData, ()> for ParticlesProcessor {
 
 // Unfortunatelly, or fortunatelly, images loading is not part of
 // drawing module, so make sure you bring your own texture loader.
-fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>) -> Texture {
+fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>, pages: u32) -> Texture {
     let file = File::open(path).unwrap();
     let decoder = png::Decoder::new(file);
     let mut reader = decoder.read_info().unwrap();
@@ -224,7 +256,13 @@ fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>) -> Texture 
     let info = reader.next_frame(&mut buf).unwrap();
     let bytes = &buf[..info.buffer_size()];
     graphics
-        .texture(info.width, info.height, 1, GlowTextureFormat::Rgba, bytes)
+        .texture(
+            info.width,
+            info.height / pages,
+            pages,
+            GlowTextureFormat::Rgba,
+            bytes,
+        )
         .unwrap()
 }
 
