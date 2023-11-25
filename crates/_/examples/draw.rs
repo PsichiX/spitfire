@@ -33,11 +33,13 @@ impl Default for State {
                 (0..36).map(|_| rand::random::<usize>() % 11).collect(),
             )
             .unwrap(),
-            tileset: TileSet {
-                mappings: (0..11)
-                    .map(|index| (index, TileSetItem::default().page(index as f32)))
-                    .collect(),
-            },
+            tileset: TileSet::single(SpriteTexture {
+                sampler: "u_image".into(),
+                texture: TextureRef::name("tileset"),
+                filtering: GlowTextureFiltering::Nearest,
+            })
+            .shader(ShaderRef::name("image"))
+            .mappings((0..11).map(|index| (index, TileSetItem::default().page(index as f32)))),
             particles: ParticleSystem::new((), 100),
             particles_phase: 0.0,
             timer: Instant::now(),
@@ -123,16 +125,11 @@ impl AppState<Vertex> for State {
 
         // Tile maps are rendered by emitting tiles with iterators.
         // Here TileMap container is providing tiles it stores.
-        TilesEmitter::single(SpriteTexture {
-            sampler: "u_image".into(),
-            texture: TextureRef::name("tileset"),
-            filtering: GlowTextureFiltering::Nearest,
-        })
-        .shader(ShaderRef::name("image"))
-        .tile_size(64.0.into())
-        .position([-192.0, -192.0].into())
-        .emit(&self.tileset, self.tilemap.emit())
-        .draw(&mut self.context, graphics);
+        TilesEmitter::default()
+            .tile_size(64.0.into())
+            .position([-192.0, -192.0].into())
+            .emit(&self.tileset, self.tilemap.emit())
+            .draw(&mut self.context, graphics);
 
         // Nine slices are renderables that split sprite into its
         // frame and content. Useful for stretching GUI panels.

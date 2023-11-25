@@ -62,28 +62,14 @@ impl TileSetItem {
 
 #[derive(Debug, Default, Clone)]
 pub struct TileSet {
+    pub shader: Option<ShaderRef>,
+    pub textures: SmallVec<[SpriteTexture; 4]>,
+    pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
+    pub blending: Option<GlowBlending>,
     pub mappings: HashMap<usize, TileSetItem>,
 }
 
 impl TileSet {
-    pub fn mapping(mut self, id: usize, item: TileSetItem) -> Self {
-        self.mappings.insert(id, item);
-        self
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct TilesEmitter {
-    pub shader: Option<ShaderRef>,
-    pub textures: SmallVec<[SpriteTexture; 4]>,
-    pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
-    pub transform: Transform<f32, f32, f32>,
-    pub blending: Option<GlowBlending>,
-    pub tile_size: Vec2<f32>,
-    pub screen_space: bool,
-}
-
-impl TilesEmitter {
     pub fn single(texture: SpriteTexture) -> Self {
         Self {
             textures: vec![texture].into(),
@@ -106,6 +92,30 @@ impl TilesEmitter {
         self
     }
 
+    pub fn blending(mut self, value: GlowBlending) -> Self {
+        self.blending = Some(value);
+        self
+    }
+
+    pub fn mapping(mut self, id: usize, item: TileSetItem) -> Self {
+        self.mappings.insert(id, item);
+        self
+    }
+
+    pub fn mappings(mut self, iter: impl IntoIterator<Item = (usize, TileSetItem)>) -> Self {
+        self.mappings.extend(iter);
+        self
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct TilesEmitter {
+    pub transform: Transform<f32, f32, f32>,
+    pub tile_size: Vec2<f32>,
+    pub screen_space: bool,
+}
+
+impl TilesEmitter {
     pub fn transform(mut self, value: Transform<f32, f32, f32>) -> Self {
         self.transform = value;
         self
@@ -131,11 +141,6 @@ impl TilesEmitter {
         self
     }
 
-    pub fn blending(mut self, value: GlowBlending) -> Self {
-        self.blending = Some(value);
-        self
-    }
-
     pub fn tile_size(mut self, value: Vec2<f32>) -> Self {
         self.tile_size = value;
         self
@@ -153,7 +158,7 @@ impl TilesEmitter {
     ) -> TilesDraw<I> {
         TilesDraw {
             emitter: self,
-            set,
+            tileset: set,
             instances: RefCell::new(Some(instances)),
         }
     }
@@ -173,16 +178,16 @@ impl TileInstance {
 
 pub struct TilesDraw<'a, I: IntoIterator<Item = TileInstance>> {
     emitter: &'a TilesEmitter,
-    set: &'a TileSet,
+    tileset: &'a TileSet,
     instances: RefCell<Option<I>>,
 }
 
 impl<'a, I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'a, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         let batch = GraphicsBatch {
-            shader: context.shader(self.emitter.shader.as_ref()),
+            shader: context.shader(self.tileset.shader.as_ref()),
             uniforms: self
-                .emitter
+                .tileset
                 .uniforms
                 .iter()
                 .map(|(k, v)| (k.clone(), v.to_owned()))
@@ -198,7 +203,7 @@ impl<'a, I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'a, I> {
                     ),
                 )))
                 .chain(
-                    self.emitter
+                    self.tileset
                         .textures
                         .iter()
                         .enumerate()
@@ -208,7 +213,7 @@ impl<'a, I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'a, I> {
                 )
                 .collect(),
             textures: self
-                .emitter
+                .tileset
                 .textures
                 .iter()
                 .filter_map(|texture| {
@@ -216,7 +221,7 @@ impl<'a, I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'a, I> {
                 })
                 .collect(),
             blending: self
-                .emitter
+                .tileset
                 .blending
                 .unwrap_or_else(|| context.top_blending()),
             scissor: None,
@@ -230,7 +235,7 @@ impl<'a, I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'a, I> {
                     None => return,
                 };
                 for instance in instances {
-                    if let Some(tile) = self.set.mappings.get(&instance.id) {
+                    if let Some(tile) = self.tileset.mappings.get(&instance.id) {
                         let offset = Vec2 {
                             x: (instance.location.x as isize + tile.offset.x) as f32,
                             y: (instance.location.y as isize + tile.offset.y) as f32,
