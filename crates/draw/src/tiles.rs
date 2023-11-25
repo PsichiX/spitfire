@@ -328,7 +328,7 @@ impl TileMap {
 
     pub fn index(&self, location: impl Into<Vec2<usize>>) -> usize {
         let location = location.into();
-        location.y * self.size.x + location.y
+        location.y * self.size.x + location.x
     }
 
     pub fn location(&self, index: usize) -> Vec2<usize> {
@@ -360,19 +360,44 @@ impl TileMap {
         }
     }
 
+    pub fn is_id_valid(&self, id: usize) -> bool {
+        (self.include_ids.is_empty() || self.include_ids.contains(&id))
+            && (self.exclude_ids.is_empty() || !self.exclude_ids.contains(&id))
+    }
+
     pub fn emit(&self) -> impl Iterator<Item = TileInstance> + '_ {
         self.buffer.iter().enumerate().filter_map(|(index, id)| {
-            if !self.include_ids.is_empty() && !self.include_ids.contains(id) {
-                return None;
+            if self.is_id_valid(*id) {
+                Some(TileInstance {
+                    id: *id,
+                    location: self.location(index),
+                })
+            } else {
+                None
             }
-            if !self.exclude_ids.is_empty() && self.exclude_ids.contains(id) {
-                return None;
-            }
-            Some(TileInstance {
-                id: *id,
-                location: self.location(index),
-            })
         })
+    }
+
+    pub fn emit_region(
+        &self,
+        region: impl Into<Rect<usize, usize>>,
+    ) -> impl Iterator<Item = TileInstance> + '_ {
+        let region = region.into();
+        (region.y..(region.y + region.h))
+            .into_iter()
+            .flat_map(move |y| {
+                (region.x..(region.x + region.w))
+                    .into_iter()
+                    .filter_map(move |x| {
+                        let location = Vec2 { x, y };
+                        if let Some(id) = self.get(location) {
+                            if self.is_id_valid(id) {
+                                return Some(TileInstance { id, location });
+                            }
+                        }
+                        None
+                    })
+            })
     }
 }
 
