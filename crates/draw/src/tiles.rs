@@ -314,6 +314,18 @@ impl TileMap {
         }
     }
 
+    pub fn size(&self) -> Vec2<usize> {
+        self.size
+    }
+
+    pub fn buffer(&self) -> &[usize] {
+        &self.buffer
+    }
+
+    pub fn buffer_mut(&mut self) -> &mut [usize] {
+        &mut self.buffer
+    }
+
     pub fn index(&self, location: impl Into<Vec2<usize>>) -> usize {
         let location = location.into();
         location.y * self.size.x + location.y
