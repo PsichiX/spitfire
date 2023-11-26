@@ -328,13 +328,13 @@ impl TileMap {
 
     pub fn index(&self, location: impl Into<Vec2<usize>>) -> usize {
         let location = location.into();
-        location.y * self.size.x + location.x
+        (location.y % self.size.y) * self.size.x + (location.x % self.size.x)
     }
 
     pub fn location(&self, index: usize) -> Vec2<usize> {
         Vec2 {
             x: index % self.size.x,
-            y: index / self.size.y,
+            y: (index / self.size.y) % self.size.y,
         }
     }
 
