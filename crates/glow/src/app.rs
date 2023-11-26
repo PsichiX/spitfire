@@ -47,7 +47,7 @@ impl Default for AppConfig {
             vsync: false,
             decorations: true,
             transparent: false,
-            double_buffer: None,
+            double_buffer: Some(true),
             hardware_acceleration: Some(true),
             refresh_on_event: false,
             color: [1.0, 1.0, 1.0],
@@ -161,11 +161,14 @@ impl<V: GlowVertexAttribs> App<V> {
             .with_maximized(maximized)
             .with_decorations(decorations)
             .with_transparent(transparent);
+        let context_builder = ContextBuilder::new()
+            .with_vsync(vsync)
+            .with_double_buffer(double_buffer)
+            .with_hardware_acceleration(hardware_acceleration);
+        #[cfg(debug_assertions)]
+        println!("* GL {:#?}", context_builder);
         let context_wrapper = unsafe {
-            ContextBuilder::new()
-                .with_vsync(vsync)
-                .with_double_buffer(double_buffer)
-                .with_hardware_acceleration(hardware_acceleration)
+            context_builder
                 .build_windowed(window_builder, &event_loop)
                 .expect("Could not build windowed context wrapper!")
                 .make_current()
@@ -174,6 +177,8 @@ impl<V: GlowVertexAttribs> App<V> {
         let context = unsafe {
             Context::from_loader_function(|name| context_wrapper.get_proc_address(name) as *const _)
         };
+        #[cfg(debug_assertions)]
+        println!("* GL Version: {:?}", context.version());
         let mut graphics = Graphics::<V>::new(context);
         graphics.color = color;
         Self {
