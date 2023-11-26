@@ -177,8 +177,12 @@ impl<V: GlowVertexAttribs> App<V> {
         let context = unsafe {
             Context::from_loader_function(|name| context_wrapper.get_proc_address(name) as *const _)
         };
+        let context_version = context.version();
         #[cfg(debug_assertions)]
-        println!("* GL Version: {:?}", context.version());
+        println!("* GL Version: {:?}", context_version);
+        if context_version.major < 3 {
+            panic!("* Minimum GL version required is 3.0!");
+        }
         let mut graphics = Graphics::<V>::new(context);
         graphics.color = color;
         Self {
