@@ -1,5 +1,6 @@
 use crate::prelude::{GlowVertexAttribs, Graphics};
 use glow::{Context, HasContext};
+#[cfg(not(target_arch = "wasm32"))]
 use glutin::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
@@ -7,6 +8,15 @@ use glutin::{
     platform::run_return::EventLoopExtRunReturn,
     window::{Fullscreen, Window, WindowBuilder},
     ContextBuilder, ContextWrapper, PossiblyCurrent,
+};
+#[cfg(target_arch = "wasm32")]
+use web_sys::{wasm_bindgen::JsCast, WebGl2RenderingContext};
+#[cfg(target_arch = "wasm32")]
+use winit::{
+    dpi::LogicalSize,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::{Fullscreen, Window, WindowBuilder},
 };
 
 #[allow(unused_variables)]
@@ -122,7 +132,10 @@ pub struct App<V: GlowVertexAttribs> {
     height: u32,
     refresh_on_event: bool,
     event_loop: EventLoop<()>,
+    #[cfg(not(target_arch = "wasm32"))]
     context_wrapper: ContextWrapper<PossiblyCurrent, Window>,
+    #[cfg(target_arch = "wasm32")]
+    window: Window,
     graphics: Graphics<V>,
 }
 
@@ -134,6 +147,7 @@ impl<V: GlowVertexAttribs> Default for App<V> {
 
 impl<V: GlowVertexAttribs> App<V> {
     pub fn new(config: AppConfig) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
         let AppConfig {
             title,
             width,
@@ -148,6 +162,19 @@ impl<V: GlowVertexAttribs> App<V> {
             refresh_on_event,
             color,
         } = config;
+        #[cfg(target_arch = "wasm32")]
+        let AppConfig {
+            title,
+            width,
+            height,
+            fullscreen,
+            maximized,
+            decorations,
+            transparent,
+            refresh_on_event,
+            color,
+            ..
+        } = config;
         let fullscreen = if fullscreen {
             Some(Fullscreen::Borderless(None))
         } else {
@@ -161,21 +188,52 @@ impl<V: GlowVertexAttribs> App<V> {
             .with_maximized(maximized)
             .with_decorations(decorations)
             .with_transparent(transparent);
-        let context_builder = ContextBuilder::new()
-            .with_vsync(vsync)
-            .with_double_buffer(double_buffer)
-            .with_hardware_acceleration(hardware_acceleration);
-        #[cfg(debug_assertions)]
-        println!("* GL {:#?}", context_builder);
-        let context_wrapper = unsafe {
-            context_builder
-                .build_windowed(window_builder, &event_loop)
-                .expect("Could not build windowed context wrapper!")
-                .make_current()
-                .expect("Could not make windowed context wrapper a current one!")
+        #[cfg(not(target_arch = "wasm32"))]
+        let (context_wrapper, context) = {
+            let context_builder = ContextBuilder::new()
+                .with_vsync(vsync)
+                .with_double_buffer(double_buffer)
+                .with_hardware_acceleration(hardware_acceleration);
+            #[cfg(debug_assertions)]
+            println!("* GL {:#?}", context_builder);
+            let context_wrapper = unsafe {
+                context_builder
+                    .build_windowed(window_builder, &event_loop)
+                    .expect("Could not build windowed context wrapper!")
+                    .make_current()
+                    .expect("Could not make windowed context wrapper a current one!")
+            };
+            let context = unsafe {
+                Context::from_loader_function(|name| {
+                    context_wrapper.get_proc_address(name) as *const _
+                })
+            };
+            (context_wrapper, context)
         };
-        let context = unsafe {
-            Context::from_loader_function(|name| context_wrapper.get_proc_address(name) as *const _)
+        #[cfg(target_arch = "wasm32")]
+        let (window, context) = {
+            use winit::platform::web::WindowExtWebSys;
+            let window = window_builder
+                .build(&event_loop)
+                .expect("Could not build window!");
+            let canvas = window.canvas();
+            web_sys::window()
+                .unwrap()
+                .document()
+                .unwrap()
+                .body()
+                .unwrap()
+                .append_child(&canvas)
+                .expect("Append canvas to HTML body");
+            let context = Context::from_webgl2_context(
+                canvas
+                    .get_context("webgl2")
+                    .expect("Could not get WebGL 2 context!")
+                    .expect("Could not get WebGL 2 context!")
+                    .dyn_into::<WebGl2RenderingContext>()
+                    .expect("DOM element is not WebGl2RenderingContext"),
+            );
+            (window, context)
         };
         let context_version = context.version();
         #[cfg(debug_assertions)]
@@ -190,12 +248,16 @@ impl<V: GlowVertexAttribs> App<V> {
             height,
             refresh_on_event,
             event_loop,
+            #[cfg(not(target_arch = "wasm32"))]
             context_wrapper,
+            #[cfg(target_arch = "wasm32")]
+            window,
             graphics,
         }
     }
 
-    pub fn run<S: AppState<V>>(self, mut state: S) -> S {
+    pub fn run<S: AppState<V> + 'static>(self, mut state: S) {
+        #[cfg(not(target_arch = "wasm32"))]
         let App {
             mut width,
             mut height,
@@ -204,11 +266,67 @@ impl<V: GlowVertexAttribs> App<V> {
             context_wrapper,
             mut graphics,
         } = self;
+        #[cfg(target_arch = "wasm32")]
+        let App {
+            mut width,
+            mut height,
+            refresh_on_event,
+            event_loop,
+            mut window,
+            mut graphics,
+        } = self;
+        #[cfg(not(target_arch = "wasm32"))]
         let (context, mut window) = unsafe { context_wrapper.split() };
         state.on_init(&mut graphics);
-        let mut running = true;
-        while running {
-            event_loop.run_return(|event, _, control_flow| {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut running = true;
+            while running {
+                event_loop.run_return(|event, _, control_flow| {
+                    *control_flow = if refresh_on_event {
+                        ControlFlow::Wait
+                    } else {
+                        ControlFlow::Poll
+                    };
+                    match &event {
+                        Event::MainEventsCleared => {
+                            unsafe {
+                                graphics
+                                    .context()
+                                    .unwrap()
+                                    .viewport(0, 0, width as _, height as _);
+                            }
+                            graphics.main_camera.screen_size.x = width as _;
+                            graphics.main_camera.screen_size.y = height as _;
+                            graphics.prepare_frame();
+                            state.on_redraw(&mut graphics);
+                            let _ = graphics.draw();
+                            let _ = context.swap_buffers();
+                            *control_flow = ControlFlow::Exit;
+                        }
+                        Event::WindowEvent { event, .. } => match event {
+                            WindowEvent::Resized(physical_size) => {
+                                context.resize(*physical_size);
+                                width = physical_size.width;
+                                height = physical_size.height;
+                            }
+                            WindowEvent::CloseRequested => {
+                                running = false;
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
+                    if !state.on_event(event, &mut window) {
+                        running = false;
+                    }
+                });
+            }
+            drop(graphics);
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            event_loop.run(move |event, _, control_flow| {
                 *control_flow = if refresh_on_event {
                     ControlFlow::Wait
                 } else {
@@ -227,28 +345,19 @@ impl<V: GlowVertexAttribs> App<V> {
                         graphics.prepare_frame();
                         state.on_redraw(&mut graphics);
                         let _ = graphics.draw();
-                        let _ = context.swap_buffers();
                         *control_flow = ControlFlow::Exit;
                     }
                     Event::WindowEvent { event, .. } => match event {
                         WindowEvent::Resized(physical_size) => {
-                            context.resize(*physical_size);
                             width = physical_size.width;
                             height = physical_size.height;
-                        }
-                        WindowEvent::CloseRequested => {
-                            running = false;
                         }
                         _ => {}
                     },
                     _ => {}
                 }
-                if !state.on_event(event, &mut window) {
-                    running = false;
-                }
+                state.on_event(event, &mut window);
             });
         }
-        drop(graphics);
-        state
     }
 }

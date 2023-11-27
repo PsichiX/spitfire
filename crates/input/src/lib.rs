@@ -1,9 +1,12 @@
+#[cfg(not(target_arch = "wasm32"))]
 use glutin::event::{ElementState, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use typid::ID;
+#[cfg(target_arch = "wasm32")]
+use winit::event::{ElementState, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum InputConsume {

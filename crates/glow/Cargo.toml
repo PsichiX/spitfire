@@ -17,5 +17,11 @@ debug_automatic_glGetError = ["glow/debug_automatic_glGetError"]
 spitfire-core = { version = "0.17", path = "../core" }
 bytemuck = { version = "1", features = ["derive"] }
 glow = "0.12"
-glutin = "0.28"
 vek = "0.16"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+winit = "0.26"
+web-sys = "0.3.64"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+glutin = "0.28"

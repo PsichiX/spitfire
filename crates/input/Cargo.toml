@@ -10,6 +10,10 @@ repository = "https://github.com/PsichiX/spitfire"
 documentation = "https://docs.rs/spitfire-input"
 readme = "../../README.md"
 
-[dependencies]
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+winit = "0.26"
+typid = { version = "1", features = ["web"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = "0.28"
 typid = "1"
