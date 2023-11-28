@@ -1,9 +1,14 @@
 use fontdue::Font;
+#[cfg(not(target_arch = "wasm32"))]
+use glutin::{
+    event::{Event, MouseButton},
+    window::Window,
+};
 use rand::random;
 use raui_immediate_widgets::prelude::*;
 use spitfire::prelude::*;
 use std::{borrow::Cow, cmp::Ordering};
-use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use winit::{
     event::{Event, MouseButton},
     window::Window,
@@ -453,7 +458,6 @@ impl AppState<Vertex> for State {
     }
 }
 
-#[wasm_bindgen(start)]
-fn main() {
-    App::<Vertex>::default().run(State::default());
+pub fn main() {
+    App::<Vertex>::new(AppConfig::default().title("Spitfire Game")).run(State::default());
 }

@@ -197,7 +197,7 @@ impl<V: GlowVertexAttribs> App<V> {
                 .with_double_buffer(double_buffer)
                 .with_hardware_acceleration(hardware_acceleration);
             #[cfg(debug_assertions)]
-            println!("* GL {:#?}", context_builder);
+            crate::console_log!("* GL {:#?}", context_builder);
             let context_wrapper = unsafe {
                 context_builder
                     .build_windowed(window_builder, &event_loop)
@@ -239,7 +239,7 @@ impl<V: GlowVertexAttribs> App<V> {
         };
         let context_version = context.version();
         #[cfg(debug_assertions)]
-        println!("* GL Version: {:?}", context_version);
+        crate::console_log!("* GL Version: {:?}", context_version);
         if context_version.major < 3 {
             panic!("* Minimum GL version required is 3.0!");
         }

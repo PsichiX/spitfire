@@ -1,10 +1,11 @@
 [package]
-name = "web"
+name = "game"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [lib]
+name = "game_web"
 crate-type = ["cdylib"]
 
 [dependencies.spitfire]
@@ -13,12 +14,17 @@ path = "../../crates/_/"
 features = ["glow", "fontdue", "draw", "input", "gui"]
 
 [dependencies]
-wasm-bindgen = "0.2"
 png = "0.17"
 fontdue = "0.7"
 vek = "0.16"
-winit = "0.26"
 raui-immediate = "0.55"
 raui-immediate-widgets = "0.55"
 rand = "0.8"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+winit = "0.26"
+wasm-bindgen = "0.2"
 getrandom = { version = "0.2", features = ["js"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+glutin = "0.28"
