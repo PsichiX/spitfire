@@ -8,7 +8,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies.spitfire]
-version = "0.17"
+version = "0.18"
 path = "../../crates/_/"
 features = ["glow", "fontdue", "draw", "input", "gui"]
 
