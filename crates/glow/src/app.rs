@@ -10,11 +10,11 @@ use glutin::{
     ContextBuilder, ContextWrapper, PossiblyCurrent,
 };
 #[cfg(target_arch = "wasm32")]
-use web_sys::{wasm_bindgen::JsCast, WebGl2RenderingContext};
+use web_sys::{wasm_bindgen::JsCast, HtmlCanvasElement, WebGl2RenderingContext};
 #[cfg(target_arch = "wasm32")]
 use winit::{
     dpi::LogicalSize,
-    event::{Event, WindowEvent},
+    event::Event,
     event_loop::{ControlFlow, EventLoop},
     window::{Fullscreen, Window, WindowBuilder},
 };
@@ -128,7 +128,9 @@ impl AppConfig {
 }
 
 pub struct App<V: GlowVertexAttribs> {
+    #[cfg(not(target_arch = "wasm32"))]
     width: u32,
+    #[cfg(not(target_arch = "wasm32"))]
     height: u32,
     refresh_on_event: bool,
     event_loop: EventLoop<()>,
@@ -212,19 +214,19 @@ impl<V: GlowVertexAttribs> App<V> {
         };
         #[cfg(target_arch = "wasm32")]
         let (window, context) = {
-            use winit::platform::web::WindowExtWebSys;
-            let window = window_builder
-                .build(&event_loop)
-                .expect("Could not build window!");
-            let canvas = window.canvas();
-            web_sys::window()
+            use winit::platform::web::WindowBuilderExtWebSys;
+            let canvas = web_sys::window()
                 .unwrap()
                 .document()
                 .unwrap()
-                .body()
+                .get_element_by_id("screen")
                 .unwrap()
-                .append_child(&canvas)
-                .expect("Append canvas to HTML body");
+                .dyn_into::<HtmlCanvasElement>()
+                .expect("DOM element is not HtmlCanvasElement");
+            let window = window_builder
+                .with_canvas(Some(canvas.clone()))
+                .build(&event_loop)
+                .expect("Could not build window!");
             let context = Context::from_webgl2_context(
                 canvas
                     .get_context("webgl2")
@@ -244,7 +246,9 @@ impl<V: GlowVertexAttribs> App<V> {
         let mut graphics = Graphics::<V>::new(context);
         graphics.color = color;
         Self {
+            #[cfg(not(target_arch = "wasm32"))]
             width,
+            #[cfg(not(target_arch = "wasm32"))]
             height,
             refresh_on_event,
             event_loop,
@@ -268,8 +272,6 @@ impl<V: GlowVertexAttribs> App<V> {
         } = self;
         #[cfg(target_arch = "wasm32")]
         let App {
-            mut width,
-            mut height,
             refresh_on_event,
             event_loop,
             mut window,
@@ -326,8 +328,6 @@ impl<V: GlowVertexAttribs> App<V> {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            width = window.inner_size().width;
-            height = window.inner_size().height;
             event_loop.run(move |event, _, control_flow| {
                 *control_flow = if refresh_on_event {
                     ControlFlow::Wait
@@ -336,28 +336,32 @@ impl<V: GlowVertexAttribs> App<V> {
                 };
                 match &event {
                     Event::MainEventsCleared => {
+                        let dom_window = web_sys::window().unwrap();
+                        let width = dom_window.inner_width().unwrap().as_f64().unwrap().max(1.0);
+                        let height = dom_window
+                            .inner_height()
+                            .unwrap()
+                            .as_f64()
+                            .unwrap()
+                            .max(1.0);
+                        let scaled_width = width * window.scale_factor();
+                        let scaled_height = height * window.scale_factor();
+                        window.set_inner_size(LogicalSize::new(width, height));
                         unsafe {
-                            graphics
-                                .context()
-                                .unwrap()
-                                .viewport(0, 0, width as _, height as _);
+                            graphics.context().unwrap().viewport(
+                                0,
+                                0,
+                                scaled_width as _,
+                                scaled_height as _,
+                            );
                         }
-                        graphics.main_camera.screen_size.x = width as _;
-                        graphics.main_camera.screen_size.y = height as _;
+                        graphics.main_camera.screen_size.x = scaled_width as _;
+                        graphics.main_camera.screen_size.y = scaled_height as _;
                         graphics.prepare_frame();
                         state.on_redraw(&mut graphics);
                         let _ = graphics.draw();
                         window.request_redraw();
                     }
-                    Event::WindowEvent { event, .. } => match event {
-                        WindowEvent::Resized(physical_size) => {
-                            // TODO: somehow figure out how to make `winit` trigger
-                            // window resized event on web, and react to canvas resize.
-                            width = physical_size.width;
-                            height = physical_size.height;
-                        }
-                        _ => {}
-                    },
                     _ => {}
                 }
                 state.on_event(event, &mut window);
