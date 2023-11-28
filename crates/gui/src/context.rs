@@ -1,9 +1,12 @@
 use crate::{interactions::GuiInteractionsEngine, prelude::GuiRenderer};
+#[cfg(target_arch = "wasm32")]
+use instant::Instant;
 use raui_core::prelude::*;
 use raui_immediate::*;
 use spitfire_draw::prelude::*;
 use spitfire_fontdue::*;
 use spitfire_glow::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
 pub struct GuiContext {

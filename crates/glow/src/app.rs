@@ -1,4 +1,4 @@
-use crate::prelude::{GlowVertexAttribs, Graphics};
+use crate::{graphics::Graphics, renderer::GlowVertexAttribs};
 use glow::{Context, HasContext};
 #[cfg(not(target_arch = "wasm32"))]
 use glutin::{
@@ -326,6 +326,8 @@ impl<V: GlowVertexAttribs> App<V> {
         }
         #[cfg(target_arch = "wasm32")]
         {
+            width = window.inner_size().width;
+            height = window.inner_size().height;
             event_loop.run(move |event, _, control_flow| {
                 *control_flow = if refresh_on_event {
                     ControlFlow::Wait
@@ -345,10 +347,12 @@ impl<V: GlowVertexAttribs> App<V> {
                         graphics.prepare_frame();
                         state.on_redraw(&mut graphics);
                         let _ = graphics.draw();
-                        *control_flow = ControlFlow::Exit;
+                        window.request_redraw();
                     }
                     Event::WindowEvent { event, .. } => match event {
                         WindowEvent::Resized(physical_size) => {
+                            // TODO: somehow figure out how to make `winit` trigger
+                            // window resized event on web, and react to canvas resize.
                             width = physical_size.width;
                             height = physical_size.height;
                         }
