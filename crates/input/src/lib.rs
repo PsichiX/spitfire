@@ -1,6 +1,8 @@
 #[cfg(not(target_arch = "wasm32"))]
 use glutin::event::{ElementState, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 use std::{
+    borrow::Cow,
+    cmp::Ordering,
     collections::HashMap,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -312,6 +314,8 @@ pub struct InputMapping {
     pub actions: HashMap<VirtualAction, InputActionRef>,
     pub axes: HashMap<VirtualAxis, InputAxisRef>,
     pub consume: InputConsume,
+    pub layer: isize,
+    pub name: Cow<'static, str>,
 }
 
 impl InputMapping {
@@ -327,6 +331,16 @@ impl InputMapping {
 
     pub fn consume(mut self, consume: InputConsume) -> Self {
         self.consume = consume;
+        self
+    }
+
+    pub fn layer(mut self, value: isize) -> Self {
+        self.layer = value;
+        self
+    }
+
+    pub fn name(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+        self.name = value.into();
         self
     }
 }
@@ -361,8 +375,21 @@ impl InputContext {
     }
 
     pub fn push_mapping(&mut self, mapping: impl Into<InputMappingRef>) -> ID<InputMapping> {
+        let mapping = mapping.into();
         let id = ID::default();
-        self.mappings_stack.push((id, mapping.into()));
+        let layer = mapping.read().unwrap().layer;
+        let index = self
+            .mappings_stack
+            .binary_search_by(|(_, mapping)| {
+                mapping
+                    .read()
+                    .unwrap()
+                    .layer
+                    .cmp(&layer)
+                    .then(Ordering::Less)
+            })
+            .map_or_else(|index| index, |index| index);
+        self.mappings_stack.insert(index, (id, mapping));
         id
     }
 
@@ -386,6 +413,10 @@ impl InputContext {
             .iter()
             .find(|(mid, _)| mid == &id)
             .and_then(|(_, mapping)| mapping.read())
+    }
+
+    pub fn stack(&self) -> impl Iterator<Item = &InputMappingRef> {
+        self.mappings_stack.iter().map(|(_, mapping)| mapping)
     }
 
     pub fn characters(&self) -> InputCharactersRef {
@@ -601,5 +632,50 @@ impl InputContext {
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{InputContext, InputMapping};
+
+    #[test]
+    fn test_stack() {
+        let mut context = InputContext::default();
+        context.push_mapping(InputMapping::default().name("a").layer(0));
+        context.push_mapping(InputMapping::default().name("b").layer(0));
+        context.push_mapping(InputMapping::default().name("c").layer(0));
+        context.push_mapping(InputMapping::default().name("d").layer(-1));
+        context.push_mapping(InputMapping::default().name("e").layer(1));
+        context.push_mapping(InputMapping::default().name("f").layer(-1));
+        context.push_mapping(InputMapping::default().name("g").layer(1));
+        context.push_mapping(InputMapping::default().name("h").layer(-2));
+        context.push_mapping(InputMapping::default().name("i").layer(-2));
+        context.push_mapping(InputMapping::default().name("j").layer(2));
+        context.push_mapping(InputMapping::default().name("k").layer(2));
+
+        let provided = context
+            .stack()
+            .map(|mapping| {
+                let mapping = mapping.read().unwrap();
+                (mapping.name.as_ref().to_owned(), mapping.layer)
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            provided,
+            vec![
+                ("h".to_owned(), -2),
+                ("i".to_owned(), -2),
+                ("d".to_owned(), -1),
+                ("f".to_owned(), -1),
+                ("a".to_owned(), 0),
+                ("b".to_owned(), 0),
+                ("c".to_owned(), 0),
+                ("e".to_owned(), 1),
+                ("g".to_owned(), 1),
+                ("j".to_owned(), 2),
+                ("k".to_owned(), 2),
+            ]
+        );
     }
 }
