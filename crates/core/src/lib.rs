@@ -140,13 +140,30 @@ impl<V: Pod, B> VertexStream<V, B> {
     }
 
     pub fn append(&mut self, other: &mut Self) {
-        self.extend(other.vertices.drain(..), other.triangles.drain(..));
         let offset = self.vertices.len();
+        self.extend(other.vertices.drain(..), other.triangles.drain(..));
         self.batches.extend(
             other
                 .batches
                 .drain(..)
                 .map(|(data, range)| (data, (range.start + offset)..(range.end + offset))),
+        );
+    }
+
+    pub fn append_cloned(&mut self, other: &Self)
+    where
+        B: Clone,
+    {
+        let offset = self.vertices.len();
+        self.extend(
+            other.vertices.iter().copied(),
+            other.triangles.iter().copied(),
+        );
+        self.batches.extend(
+            other
+                .batches
+                .iter()
+                .map(|(data, range)| (data.clone(), (range.start + offset)..(range.end + offset))),
         );
     }
 
