@@ -164,7 +164,7 @@ impl TilesEmitter {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TileInstance {
     pub id: usize,
     pub location: Vec2<usize>,
