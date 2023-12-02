@@ -9,7 +9,7 @@ name = "game_web"
 crate-type = ["cdylib"]
 
 [dependencies.spitfire]
-version = "0.19"
+version = "0.20"
 path = "../../crates/_/"
 features = ["glow", "fontdue", "draw", "input", "gui"]
 
