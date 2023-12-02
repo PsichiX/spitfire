@@ -24,6 +24,13 @@ impl Triangle {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct VertexStreamToken {
+    vertices: usize,
+    triangles: usize,
+    batches: usize,
+}
+
 pub struct VertexStream<V: Pod, B> {
     vertices: Vec<V>,
     triangles: Vec<Triangle>,
@@ -54,6 +61,43 @@ impl<V: Pod, B> VertexStream<V, B> {
 
     pub fn fork(&self) -> Self {
         Self::new(self.resize_count)
+    }
+
+    pub fn token(&self) -> VertexStreamToken {
+        VertexStreamToken {
+            vertices: self.vertices.len(),
+            triangles: self.triangles.len(),
+            batches: self.batches.len(),
+        }
+    }
+
+    /// # Safety
+    /// By extracting part of stream, you might make this and new stream invalid!
+    pub unsafe fn extract(&mut self, token: VertexStreamToken) -> Self {
+        let VertexStreamToken {
+            vertices,
+            triangles,
+            batches,
+        } = token;
+        let mut result = self.fork();
+        unsafe {
+            result.extend_vertices(self.vertices.drain(vertices..));
+            result.extend_triangles(
+                false,
+                self.triangles.drain(triangles..).map(|mut triangle| {
+                    triangle.a -= vertices as u32;
+                    triangle.b -= vertices as u32;
+                    triangle.c -= vertices as u32;
+                    triangle
+                }),
+            );
+            result.extend_batches(self.batches.drain(batches..).map(|(batch, mut range)| {
+                range.start -= triangles;
+                range.end -= triangles;
+                (batch, range)
+            }));
+        }
+        result
     }
 
     pub fn transformed(
@@ -140,7 +184,7 @@ impl<V: Pod, B> VertexStream<V, B> {
     }
 
     pub fn append(&mut self, other: &mut Self) {
-        let offset = self.vertices.len();
+        let offset = self.triangles.len();
         self.extend(other.vertices.drain(..), other.triangles.drain(..));
         self.batches.extend(
             other
@@ -154,7 +198,7 @@ impl<V: Pod, B> VertexStream<V, B> {
     where
         B: Clone,
     {
-        let offset = self.vertices.len();
+        let offset = self.triangles.len();
         self.extend(
             other.vertices.iter().copied(),
             other.triangles.iter().copied(),

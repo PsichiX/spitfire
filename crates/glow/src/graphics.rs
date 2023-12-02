@@ -471,7 +471,7 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub const PASS_VERTEX_2D: &str = r#"#version 300 es
+    pub const PASS_VERTEX_2D: &'static str = r#"#version 300 es
     layout(location = 0) in vec2 a_position;
     layout(location = 2) in vec4 a_color;
     out vec4 v_color;
@@ -482,7 +482,7 @@ impl Shader {
     }
     "#;
 
-    pub const PASS_VERTEX_3D: &str = r#"#version 300 es
+    pub const PASS_VERTEX_3D: &'static str = r#"#version 300 es
     layout(location = 0) in vec3 a_position;
     layout(location = 3) in vec4 a_color;
     out vec4 v_color;
@@ -493,7 +493,7 @@ impl Shader {
     }
     "#;
 
-    pub const PASS_FRAGMENT: &str = r#"#version 300 es
+    pub const PASS_FRAGMENT: &'static str = r#"#version 300 es
     precision highp float;
     precision highp int;
     in vec4 v_color;
@@ -504,7 +504,7 @@ impl Shader {
     }
     "#;
 
-    pub const COLORED_VERTEX_2D: &str = r#"#version 300 es
+    pub const COLORED_VERTEX_2D: &'static str = r#"#version 300 es
     layout(location = 0) in vec2 a_position;
     layout(location = 2) in vec4 a_color;
     out vec4 v_color;
@@ -516,7 +516,7 @@ impl Shader {
     }
     "#;
 
-    pub const COLORED_VERTEX_3D: &str = r#"#version 300 es
+    pub const COLORED_VERTEX_3D: &'static str = r#"#version 300 es
     layout(location = 0) in vec3 a_position;
     layout(location = 3) in vec4 a_color;
     out vec4 v_color;
@@ -528,7 +528,7 @@ impl Shader {
     }
     "#;
 
-    pub const TEXTURED_VERTEX_2D: &str = r#"#version 300 es
+    pub const TEXTURED_VERTEX_2D: &'static str = r#"#version 300 es
     layout(location = 0) in vec2 a_position;
     layout(location = 1) in vec3 a_uv;
     layout(location = 2) in vec4 a_color;
@@ -543,7 +543,7 @@ impl Shader {
     }
     "#;
 
-    pub const TEXTURED_VERTEX_3D: &str = r#"#version 300 es
+    pub const TEXTURED_VERTEX_3D: &'static str = r#"#version 300 es
     layout(location = 0) in vec3 a_position;
     layout(location = 2) in vec3 a_uv;
     layout(location = 3) in vec4 a_color;
@@ -558,7 +558,7 @@ impl Shader {
     }
     "#;
 
-    pub const TEXTURED_FRAGMENT: &str = r#"#version 300 es
+    pub const TEXTURED_FRAGMENT: &'static str = r#"#version 300 es
     precision highp float;
     precision highp int;
     precision highp sampler2DArray;
@@ -572,7 +572,7 @@ impl Shader {
     }
     "#;
 
-    pub const TEXT_VERTEX: &str = r#"#version 300 es
+    pub const TEXT_VERTEX: &'static str = r#"#version 300 es
     layout(location = 0) in vec2 a_position;
     layout(location = 1) in vec3 a_uv;
     layout(location = 2) in vec4 a_color;
@@ -587,7 +587,7 @@ impl Shader {
     }
     "#;
 
-    pub const TEXT_FRAGMENT: &str = r#"#version 300 es
+    pub const TEXT_FRAGMENT: &'static str = r#"#version 300 es
     precision highp float;
     precision highp int;
     precision highp sampler2DArray;
