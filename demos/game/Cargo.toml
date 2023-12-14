@@ -17,8 +17,8 @@ features = ["glow", "fontdue", "draw", "input", "gui"]
 png = "0.17"
 fontdue = "0.7"
 vek = "0.16"
-raui-immediate = "0.55"
-raui-immediate-widgets = "0.55"
+raui-immediate = "0.56"
+raui-immediate-widgets = "0.56"
 rand = "0.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
