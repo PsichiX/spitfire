@@ -242,14 +242,22 @@ impl<V: GlowVertexAttribs> Graphics<V> {
 pub enum CameraScaling {
     #[default]
     None,
+    Constant(f32),
+    Stretch(Vec2<f32>),
     FitHorizontal(f32),
     FitVertical(f32),
+    FitToView {
+        size: Vec2<f32>,
+        inside: bool,
+    },
 }
 
 impl CameraScaling {
     pub fn world_size(self, viewport_size: Vec2<f32>) -> Vec2<f32> {
         match self {
             Self::None => viewport_size,
+            Self::Constant(value) => viewport_size * value,
+            Self::Stretch(size) => size,
             Self::FitHorizontal(value) => Vec2 {
                 x: value,
                 y: value * viewport_size.y / viewport_size.x,
@@ -258,6 +266,21 @@ impl CameraScaling {
                 x: value * viewport_size.x / viewport_size.y,
                 y: value,
             },
+            Self::FitToView { size, inside } => {
+                let source_aspect = size.x / size.y;
+                let target_aspect = viewport_size.x / viewport_size.y;
+                if (target_aspect >= source_aspect) != inside {
+                    Vec2 {
+                        x: viewport_size.x * size.x / viewport_size.y,
+                        y: size.y,
+                    }
+                } else {
+                    Vec2 {
+                        x: size.x,
+                        y: viewport_size.y * size.y / viewport_size.x,
+                    }
+                }
+            }
         }
     }
 }

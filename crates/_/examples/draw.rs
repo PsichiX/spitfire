@@ -51,6 +51,10 @@ impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
         graphics.color = [0.25, 0.25, 0.25];
         graphics.main_camera.screen_alignment = 0.5.into();
+        graphics.main_camera.scaling = CameraScaling::FitToView {
+            size: 1000.0.into(),
+            inside: false,
+        };
 
         self.context.shaders.insert(
             "color".into(),
