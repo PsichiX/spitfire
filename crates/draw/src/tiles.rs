@@ -381,8 +381,17 @@ impl TileMap {
     pub fn emit_region(
         &self,
         region: impl Into<Rect<usize, usize>>,
+        repeating: bool,
     ) -> impl Iterator<Item = TileInstance> + '_ {
-        let region = region.into();
+        let mut region = region.into();
+        if !repeating {
+            if region.x + region.w > self.size.x {
+                region.w = self.size.x.saturating_sub(region.x);
+            }
+            if region.y + region.h > self.size.y {
+                region.h = self.size.y.saturating_sub(region.y);
+            }
+        }
         (region.y..(region.y + region.h)).flat_map(move |y| {
             (region.x..(region.x + region.w)).filter_map(move |x| {
                 let location = Vec2 { x, y };
