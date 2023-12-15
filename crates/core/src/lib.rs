@@ -122,6 +122,52 @@ impl<V: Pod, B> VertexStream<V, B> {
         self
     }
 
+    pub fn triangle_fan(&mut self, vertices: impl IntoIterator<Item = V>) -> &mut Self {
+        self.ensure_capacity();
+        let start = self.vertices.len() as u32;
+        self.vertices.extend(vertices);
+        let end = self.vertices.len() as u32;
+        let count = (end - start).saturating_sub(2);
+        let mut offset = start + 1;
+        for _ in 0..count {
+            self.triangles.push(Triangle {
+                a: start,
+                b: offset,
+                c: offset + 1,
+            });
+            offset += 1;
+        }
+        self
+    }
+
+    pub fn triangle_strip(&mut self, vertices: impl IntoIterator<Item = V>) -> &mut Self {
+        self.ensure_capacity();
+        let start = self.vertices.len() as u32;
+        self.vertices.extend(vertices);
+        let end = self.vertices.len() as u32;
+        let count = (end - start).saturating_sub(2);
+        let mut offset = start;
+        let mut flip = false;
+        for _ in 0..count {
+            self.triangles.push(if flip {
+                Triangle {
+                    a: offset + 1,
+                    b: offset,
+                    c: offset + 2,
+                }
+            } else {
+                Triangle {
+                    a: offset,
+                    b: offset + 1,
+                    c: offset + 2,
+                }
+            });
+            offset += 1;
+            flip = !flip;
+        }
+        self
+    }
+
     pub fn quad(&mut self, vertices: [V; 4]) -> &mut Self {
         self.ensure_capacity();
         let offset = self.vertices.len();

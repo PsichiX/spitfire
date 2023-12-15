@@ -6,11 +6,12 @@ use spitfire_draw::prelude::*;
 use spitfire_glow::prelude::*;
 use spitfire_input::*;
 use std::{fs::File, path::Path, time::Instant};
-use vek::{Quaternion, Vec2};
+use vek::{Quaternion, Rgba, Vec2};
 
 struct Player {
     input_move: CardinalInputCombinator,
     input_rotate: DualInputCombinator,
+    input_camera_attached_to_ferris: InputActionRef,
     sprite: Sprite,
     speed: f32,
 }
@@ -26,6 +27,7 @@ impl Player {
         let move_down = InputActionRef::default();
         let rotate_left = InputActionRef::default();
         let rotate_right = InputActionRef::default();
+        let input_camera_attached_to_ferris = InputActionRef::default();
 
         // Once we create input references, we need to map them to physical
         // input actions and axes.
@@ -70,6 +72,10 @@ impl Player {
                 .action(
                     VirtualAction::KeyButton(VirtualKeyCode::E),
                     rotate_right.clone(),
+                )
+                .action(
+                    VirtualAction::KeyButton(VirtualKeyCode::Space),
+                    input_camera_attached_to_ferris.clone(),
                 ),
         );
 
@@ -87,25 +93,39 @@ impl Player {
         Self {
             input_move,
             input_rotate,
+            input_camera_attached_to_ferris,
             sprite,
             speed,
         }
     }
 
     fn update(&mut self) {
-        // By getting combinator values we get each of combined inputs state
-        // at once and let combinator process them into single useful value.
-        let input_move = Vec2::from(self.input_move.get())
-            .try_normalized()
-            .unwrap_or_default();
-        let input_rotate = self.input_rotate.get();
+        if !self.input_camera_attached_to_ferris.get().is_hold() {
+            // By getting combinator values we get each of combined inputs state
+            // at once and let combinator process them into single useful value.
+            let input_move = Vec2::from(self.input_move.get())
+                .try_normalized()
+                .unwrap_or_default();
+            let input_rotate = self.input_rotate.get();
 
-        self.sprite.transform.position += input_move * self.speed;
-        self.sprite.transform.orientation = self.sprite.transform.orientation
-            * Quaternion::rotation_z(input_rotate * 5.0_f32.to_radians());
+            self.sprite.transform.position += input_move * self.speed;
+            self.sprite.transform.orientation = self.sprite.transform.orientation
+                * Quaternion::rotation_z(input_rotate * 5.0_f32.to_radians());
+        }
     }
 
-    fn draw(&self, draw: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, draw: &mut DrawContext, graphics: &mut Graphics<Vertex>, ticked: bool) {
+        if ticked && self.input_camera_attached_to_ferris.get().is_hold() {
+            let input_move = Vec2::from(self.input_move.get())
+                .try_normalized()
+                .unwrap_or_default();
+            let input_rotate = self.input_rotate.get();
+
+            graphics.main_camera.transform.position += input_move * self.speed;
+            graphics.main_camera.transform.orientation = graphics.main_camera.transform.orientation
+                * Quaternion::rotation_z(input_rotate * 5.0_f32.to_radians());
+        }
+
         self.sprite.draw(draw, graphics);
     }
 }
@@ -148,8 +168,15 @@ impl State {
         self.player.update();
     }
 
-    fn draw(&mut self, graphics: &mut Graphics<Vertex>) {
-        self.player.draw(&mut self.draw, graphics);
+    fn draw(&mut self, graphics: &mut Graphics<Vertex>, ticked: bool) {
+        Sprite::default()
+            .shader(ShaderRef::name("color"))
+            .size(1000.0.into())
+            .pivot(0.5.into())
+            .tint(Rgba::blue())
+            .draw(&mut self.draw, graphics);
+
+        self.player.draw(&mut self.draw, graphics, ticked);
     }
 }
 
@@ -157,6 +184,13 @@ impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
         graphics.color = [0.25, 0.25, 0.25];
         graphics.main_camera.screen_alignment = 0.5.into();
+
+        self.draw.shaders.insert(
+            "color".into(),
+            graphics
+                .shader(Shader::COLORED_VERTEX_2D, Shader::PASS_FRAGMENT)
+                .unwrap(),
+        );
 
         self.draw.shaders.insert(
             "image".into(),
@@ -173,7 +207,8 @@ impl AppState<Vertex> for State {
 
     fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>) {
         // We loosely simulate fixed update tick rate.
-        if self.tick.elapsed().as_millis() > 16 {
+        let ticked = self.tick.elapsed().as_millis() > 16;
+        if ticked {
             self.tick = Instant::now();
             self.update();
         }
@@ -182,7 +217,7 @@ impl AppState<Vertex> for State {
         self.draw.push_shader(&ShaderRef::name("image"));
         self.draw.push_blending(GlowBlending::Alpha);
 
-        self.draw(graphics);
+        self.draw(graphics, ticked);
 
         self.draw.end_frame();
         // After frame ends, we need to maintain inputs stack to make its

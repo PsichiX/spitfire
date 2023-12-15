@@ -70,6 +70,7 @@ impl TextVertex<[f32; 4]> for Vertex {
 // It's advised to store acquired graphics resources here.
 #[derive(Default)]
 struct State {
+    color_shader: Option<Shader>,
     sprite_shader: Option<Shader>,
     text_shader: Option<Shader>,
     ferris_texture: Option<Texture>,
@@ -85,6 +86,12 @@ impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
         graphics.color = [0.25, 0.25, 0.25];
         graphics.main_camera.screen_alignment = 0.5.into();
+
+        self.color_shader = Some(
+            graphics
+                .shader(Shader::COLORED_VERTEX_2D, Shader::PASS_FRAGMENT)
+                .unwrap(),
+        );
 
         self.sprite_shader = Some(
             graphics
@@ -129,6 +136,68 @@ impl AppState<Vertex> for State {
             GlowUniformValue::M4(graphics.main_camera.world_matrix().into_col_array()),
         );
         uniforms.insert("u_image".into(), GlowUniformValue::I1(0));
+
+        graphics.stream.batch(GraphicsBatch {
+            shader: self.color_shader.clone(),
+            uniforms: uniforms.clone(),
+            ..Default::default()
+        });
+
+        graphics.stream.triangle_fan([
+            Vertex {
+                position: [-500.0, -500.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+            },
+            Vertex {
+                position: [500.0, -500.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [0.0, 1.0, 0.0, 1.0],
+            },
+            Vertex {
+                position: [500.0, 0.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+            },
+            Vertex {
+                position: [-500.0, 0.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [1.0, 1.0, 1.0, 1.0],
+            },
+        ]);
+
+        graphics.stream.triangle_strip([
+            Vertex {
+                position: [-500.0, 0.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+            },
+            Vertex {
+                position: [-500.0, 500.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+            },
+            Vertex {
+                position: [0.0, 0.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [0.0, 1.0, 0.0, 1.0],
+            },
+            Vertex {
+                position: [0.0, 500.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [0.0, 1.0, 0.0, 1.0],
+            },
+            Vertex {
+                position: [500.0, 0.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+            },
+            Vertex {
+                position: [500.0, 500.0],
+                uv: [0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+            },
+        ]);
 
         graphics.stream.batch(GraphicsBatch {
             shader: self.sprite_shader.clone(),

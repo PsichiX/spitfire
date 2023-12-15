@@ -294,15 +294,6 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn screen_rectangle(&self) -> Rect<f32, f32> {
-        Rect {
-            x: 0.0,
-            y: 0.0,
-            w: self.screen_size.x,
-            h: self.screen_size.y,
-        }
-    }
-
     pub fn screen_projection_matrix(&self) -> Mat4<f32> {
         Mat4::orthographic_without_depth_planes(FrustumPlanes {
             left: 0.0,
@@ -326,17 +317,6 @@ impl Camera {
         self.world_size() * -self.screen_alignment
     }
 
-    pub fn world_rectangle(&self) -> Rect<f32, f32> {
-        let size = self.world_size();
-        let offset = size * -self.screen_alignment;
-        Rect {
-            x: offset.x,
-            y: offset.y,
-            w: size.x,
-            h: size.y,
-        }
-    }
-
     pub fn world_projection_matrix(&self) -> Mat4<f32> {
         let size = self.world_size();
         let offset = size * -self.screen_alignment;
@@ -356,6 +336,30 @@ impl Camera {
 
     pub fn world_matrix(&self) -> Mat4<f32> {
         self.world_projection_matrix() * self.world_view_matrix()
+    }
+
+    pub fn world_polygon(&self) -> [Vec2<f32>; 4] {
+        let matrix = self.world_matrix().inverted();
+        [
+            matrix.mul_point(Vec2::new(-1.0, -1.0)),
+            matrix.mul_point(Vec2::new(1.0, -1.0)),
+            matrix.mul_point(Vec2::new(1.0, 1.0)),
+            matrix.mul_point(Vec2::new(-1.0, 1.0)),
+        ]
+    }
+
+    pub fn world_rectangle(&self) -> Rect<f32, f32> {
+        let [tl, tr, br, bl] = self.world_polygon();
+        let xf = tl.x.min(tr.x).min(br.x).min(bl.x);
+        let xt = tl.x.max(tr.x).max(br.x).max(bl.x);
+        let yf = tl.y.min(tr.y).min(br.y).min(bl.y);
+        let yt = tl.y.max(tr.y).max(br.y).max(bl.y);
+        Rect {
+            x: xf,
+            y: yf,
+            w: xt - xf,
+            h: yt - yf,
+        }
     }
 }
 
