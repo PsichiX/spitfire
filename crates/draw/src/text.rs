@@ -1,6 +1,6 @@
 use crate::{
     context::DrawContext,
-    prelude::{Drawable, ShaderRef, Vertex},
+    utils::{Drawable, ShaderRef, Vertex},
 };
 use fontdue::layout::{
     CoordinateSystem, HorizontalAlign, Layout, LayoutSettings, TextStyle, VerticalAlign,

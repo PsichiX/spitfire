@@ -1,4 +1,8 @@
-use crate::prelude::{DrawContext, Drawable, ShaderRef, SpriteTexture, Vertex};
+use crate::{
+    context::DrawContext,
+    sprite::SpriteTexture,
+    utils::{Drawable, ShaderRef, Vertex},
+};
 use smallvec::SmallVec;
 use spitfire_glow::{
     graphics::{Graphics, GraphicsBatch},
