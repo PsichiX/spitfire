@@ -9,7 +9,12 @@ use spitfire_glow::{
     graphics::{Graphics, GraphicsBatch},
     renderer::{GlowBlending, GlowUniformValue},
 };
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, f32::consts::TAU};
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::HashMap,
+    f32::consts::{PI, TAU},
+};
 use vek::{Mat4, Rect, Rgba, Vec2};
 
 #[derive(Debug, Default, Clone)]
@@ -54,6 +59,22 @@ impl PrimitivesEmitter {
         self
     }
 
+    pub fn emit_lines<I: IntoIterator<Item = Vec2<f32>>>(&self, vertices: I) -> LinesDraw<I> {
+        LinesDraw {
+            emitter: self,
+            vertices: RefCell::new(Some(vertices)),
+            region: Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 1.0,
+                h: 1.0,
+            },
+            page: 0.0,
+            tint: Rgba::white(),
+            thickness: 1.0,
+        }
+    }
+
     pub fn emit_triangles<I: IntoIterator<Item = [Vertex; 3]>>(
         &self,
         vertices: I,
@@ -89,6 +110,22 @@ impl PrimitivesEmitter {
         RegularPolygonDraw {
             emitter: self,
             vertices,
+            radius,
+            region: Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 1.0,
+                h: 1.0,
+            },
+            page: 0.0,
+            tint: Rgba::white(),
+        }
+    }
+
+    pub fn emit_circle(&self, radius: f32, maximum_error: f32) -> RegularPolygonDraw {
+        RegularPolygonDraw {
+            emitter: self,
+            vertices: (PI / (1.0 - maximum_error / radius).acos()).ceil() as _,
             radius,
             region: Rect {
                 x: 0.0,
@@ -151,11 +188,19 @@ impl PrimitivesEmitter {
 pub struct LinesDraw<'a, I: IntoIterator<Item = Vec2<f32>>> {
     emitter: &'a PrimitivesEmitter,
     vertices: RefCell<Option<I>>,
+    pub region: Rect<f32, f32>,
+    pub page: f32,
     pub tint: Rgba<f32>,
     pub thickness: f32,
 }
 
 impl<'a, I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'a, I> {
+    pub fn region_page(mut self, region: Rect<f32, f32>, page: f32) -> Self {
+        self.region = region;
+        self.page = page;
+        self
+    }
+
     pub fn tint(mut self, value: Rgba<f32>) -> Self {
         self.tint = value;
         self
@@ -183,28 +228,35 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
                             x: tangent.y,
                             y: -tangent.x,
                         };
-                        stream.triangle_strip([
-                            Vertex {
-                                position: (prev - normal).into_array(),
-                                uv: [0.0, 0.0, 0.0],
-                                color,
-                            },
-                            Vertex {
-                                position: (prev + normal).into_array(),
-                                uv: [0.0, 0.0, 0.0],
-                                color,
-                            },
-                            Vertex {
-                                position: (next + normal).into_array(),
-                                uv: [0.0, 0.0, 0.0],
-                                color,
-                            },
-                            Vertex {
-                                position: (next - normal).into_array(),
-                                uv: [0.0, 0.0, 0.0],
-                                color,
-                            },
-                        ]);
+                        stream.extend(
+                            [
+                                Vertex {
+                                    position: (prev - normal).into_array(),
+                                    uv: [self.region.x, self.region.y, self.page],
+                                    color,
+                                },
+                                Vertex {
+                                    position: (prev + normal).into_array(),
+                                    uv: [self.region.x + self.region.w, self.region.y, self.page],
+                                    color,
+                                },
+                                Vertex {
+                                    position: (next + normal).into_array(),
+                                    uv: [
+                                        self.region.x + self.region.w,
+                                        self.region.y + self.region.h,
+                                        self.page,
+                                    ],
+                                    color,
+                                },
+                                Vertex {
+                                    position: (next - normal).into_array(),
+                                    uv: [self.region.x, self.region.y + self.region.h, self.page],
+                                    color,
+                                },
+                            ],
+                            [Triangle { a: 0, b: 1, c: 2 }, Triangle { a: 2, b: 3, c: 0 }],
+                        );
                         prev = next;
                     }
                 }
