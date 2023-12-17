@@ -72,6 +72,7 @@ impl PrimitivesEmitter {
             page: 0.0,
             tint: Rgba::white(),
             thickness: 1.0,
+            looped: false,
         }
     }
 
@@ -192,6 +193,7 @@ pub struct LinesDraw<'a, I: IntoIterator<Item = Vec2<f32>>> {
     pub page: f32,
     pub tint: Rgba<f32>,
     pub thickness: f32,
+    pub looped: bool,
 }
 
 impl<'a, I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'a, I> {
@@ -210,6 +212,11 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'a, I> {
         self.thickness = value;
         self
     }
+
+    pub fn looped(mut self, value: bool) -> Self {
+        self.looped = value;
+        self
+    }
 }
 
 impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
@@ -221,13 +228,9 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
                     let Some(mut prev) = vertices.next() else {
                         return;
                     };
+                    let start = prev;
                     let color = self.tint.into_array();
-                    for next in vertices {
-                        let tangent = next - prev;
-                        let normal = Vec2 {
-                            x: tangent.y,
-                            y: -tangent.x,
-                        };
+                    let mut push = |prev: Vec2<f32>, next: Vec2<f32>, normal: Vec2<f32>| {
                         stream.extend(
                             [
                                 Vertex {
@@ -257,7 +260,23 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
                             ],
                             [Triangle { a: 0, b: 1, c: 2 }, Triangle { a: 2, b: 3, c: 0 }],
                         );
+                    };
+                    for next in vertices {
+                        let tangent = next - prev;
+                        let normal = Vec2 {
+                            x: tangent.y,
+                            y: -tangent.x,
+                        };
+                        push(prev, next, normal);
                         prev = next;
+                    }
+                    if self.looped {
+                        let tangent = start - prev;
+                        let normal = Vec2 {
+                            x: tangent.y,
+                            y: -tangent.x,
+                        };
+                        push(prev, start, normal);
                     }
                 }
             });
