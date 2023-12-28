@@ -28,5 +28,6 @@ pub mod log {
 }
 
 pub mod prelude {
+    #[allow(unused_imports)]
     pub use crate::{app::*, graphics::*, log::*, renderer::*};
 }

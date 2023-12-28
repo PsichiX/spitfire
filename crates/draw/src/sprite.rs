@@ -184,7 +184,7 @@ impl Drawable for Sprite {
             .or_else(|| {
                 batch
                     .textures
-                    .get(0)
+                    .first()
                     .map(|(texture, _)| Vec2::new(texture.width() as _, texture.height() as _))
             })
             .unwrap_or_default();

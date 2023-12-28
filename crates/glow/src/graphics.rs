@@ -202,6 +202,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                         program,
                         vertex_shader,
                         fragment_shader,
+                        shared_uniforms: Default::default(),
                     }),
                 })
             } else {
@@ -377,8 +378,21 @@ pub struct GraphicsBatch {
 impl Into<GlowBatch> for GraphicsBatch {
     fn into(self) -> GlowBatch {
         GlowBatch {
-            shader_program: self.shader.map(|shader| shader.handle()),
-            uniforms: self.uniforms,
+            shader_program: self.shader.as_ref().map(|shader| shader.handle()),
+            uniforms: if let Some(shader) = self.shader.as_ref() {
+                let uniforms = &*shader.inner.shared_uniforms.borrow();
+                if uniforms.is_empty() {
+                    self.uniforms
+                } else {
+                    uniforms
+                        .iter()
+                        .map(|(k, v)| (k.clone(), *v))
+                        .chain(self.uniforms)
+                        .collect()
+                }
+            } else {
+                self.uniforms
+            },
             textures: self
                 .textures
                 .into_iter()
@@ -478,6 +492,7 @@ struct ShaderInner {
     program: GlowProgram,
     vertex_shader: GlowShader,
     fragment_shader: GlowShader,
+    shared_uniforms: RefCell<HashMap<Cow<'static, str>, GlowUniformValue>>,
 }
 
 impl Drop for ShaderInner {
@@ -631,6 +646,25 @@ impl Shader {
 
     pub fn handle(&self) -> GlowProgram {
         self.inner.program
+    }
+
+    pub fn set_shared_uniform(
+        &mut self,
+        id: impl Into<Cow<'static, str>>,
+        value: GlowUniformValue,
+    ) {
+        self.inner
+            .shared_uniforms
+            .borrow_mut()
+            .insert(id.into(), value);
+    }
+
+    pub fn unset_shared_uniform(&mut self, id: &str) {
+        self.inner.shared_uniforms.borrow_mut().remove(id);
+    }
+
+    pub fn get_shared_uniform(&self, id: &str) -> Option<GlowUniformValue> {
+        self.inner.shared_uniforms.borrow().get(id).cloned()
     }
 }
 
