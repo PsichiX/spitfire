@@ -1,6 +1,6 @@
 [package]
 name = "spitfire"
-version = "0.24.0"
+version = "0.25.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Spitfire toolset"
@@ -18,12 +18,12 @@ input = ["spitfire-input"]
 gui = ["spitfire-gui"]
 
 [dependencies]
-spitfire-core = { version = "0.24", path = "../core" }
-spitfire-glow = { version = "0.24", path = "../glow", optional = true }
-spitfire-fontdue = { version = "0.24", path = "../fontdue", optional = true }
-spitfire-draw = { version = "0.24", path = "../draw", optional = true }
-spitfire-input = { version = "0.24", path = "../input", optional = true }
-spitfire-gui = { version = "0.24", path = "../gui", optional = true }
+spitfire-core = { version = "0.25", path = "../core" }
+spitfire-glow = { version = "0.25", path = "../glow", optional = true }
+spitfire-fontdue = { version = "0.25", path = "../fontdue", optional = true }
+spitfire-draw = { version = "0.25", path = "../draw", optional = true }
+spitfire-input = { version = "0.25", path = "../input", optional = true }
+spitfire-gui = { version = "0.25", path = "../gui", optional = true }
 
 [dev-dependencies]
 spitfire-core = { path = "../core" }
@@ -34,7 +34,7 @@ spitfire-input = { path = "../input" }
 spitfire-gui = { path = "../gui" }
 png = "0.17"
 bytemuck = { version = "1", features = ["derive"] }
-fontdue = "0.7"
+fontdue = "0.8"
 vek = "0.16"
 glutin = "0.28"
 raui-immediate = "0.56"

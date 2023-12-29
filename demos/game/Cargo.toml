@@ -9,13 +9,13 @@ name = "game_web"
 crate-type = ["cdylib"]
 
 [dependencies.spitfire]
-version = "0.24"
+version = "0.25"
 path = "../../crates/_/"
 features = ["glow", "fontdue", "draw", "input", "gui"]
 
 [dependencies]
 png = "0.17"
-fontdue = "0.7"
+fontdue = "0.8"
 vek = "0.16"
 raui-immediate = "0.56"
 raui-immediate-widgets = "0.56"

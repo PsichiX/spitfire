@@ -666,6 +666,10 @@ impl Shader {
     pub fn get_shared_uniform(&self, id: &str) -> Option<GlowUniformValue> {
         self.inner.shared_uniforms.borrow().get(id).cloned()
     }
+
+    pub fn clear_shared_uniforms(&mut self) {
+        self.inner.shared_uniforms.borrow_mut().clear();
+    }
 }
 
 impl PartialEq for Shader {

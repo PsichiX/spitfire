@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-gui"
-version = "0.24.0"
+version = "0.25.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "GUI module for Spitfire toolset"
@@ -11,14 +11,14 @@ documentation = "https://docs.rs/spitfire-gui"
 readme = "../../README.md"
 
 [dependencies]
-spitfire-glow = { version = "0.24", path = "../glow" }
-spitfire-fontdue = { version = "0.24", path = "../fontdue" }
-spitfire-draw = { version = "0.24", path = "../draw" }
-spitfire-input = { version = "0.24", path = "../input" }
+spitfire-glow = { version = "0.25", path = "../glow" }
+spitfire-fontdue = { version = "0.25", path = "../fontdue" }
+spitfire-draw = { version = "0.25", path = "../draw" }
+spitfire-input = { version = "0.25", path = "../input" }
 raui-core = "0.56"
 raui-immediate = "0.56"
 vek = "0.16"
-fontdue = "0.7"
+fontdue = "0.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen" ] }
