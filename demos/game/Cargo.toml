@@ -9,7 +9,7 @@ name = "game_web"
 crate-type = ["cdylib"]
 
 [dependencies.spitfire]
-version = "0.25"
+version = "0.26"
 path = "../../crates/_/"
 features = ["glow", "fontdue", "draw", "input", "gui"]
 
@@ -17,8 +17,8 @@ features = ["glow", "fontdue", "draw", "input", "gui"]
 png = "0.17"
 fontdue = "0.8"
 vek = "0.16"
-raui-immediate = "0.56"
-raui-immediate-widgets = "0.56"
+raui-immediate = "0.61"
+raui-immediate-widgets = "0.61"
 rand = "0.8"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
