@@ -349,7 +349,7 @@ impl<V: GlowVertexAttribs> App<V> {
                         window.set_inner_size(LogicalSize::new(width, height));
                         graphics.main_camera.screen_size.x = scaled_width as _;
                         graphics.main_camera.screen_size.y = scaled_height as _;
-                        graphics.prepare_frame();
+                        graphics.prepare_frame(true);
                         state.on_redraw(&mut graphics);
                         let _ = graphics.draw();
                         window.request_redraw();
