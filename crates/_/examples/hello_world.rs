@@ -84,7 +84,7 @@ impl AppState<Vertex> for State {
     // at this phase you might want to setup Graphics and
     // acquire resources.
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
-        graphics.color = [0.25, 0.25, 0.25];
+        graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
 
         self.color_shader = Some(
@@ -225,8 +225,8 @@ impl AppState<Vertex> for State {
             width as _,
             height as _,
             depth as _,
-            GlowTextureFormat::Luminance,
-            text_renderer.image(),
+            GlowTextureFormat::Monochromatic,
+            Some(text_renderer.image()),
         );
 
         graphics.stream.batch(GraphicsBatch {
@@ -282,6 +282,12 @@ fn load_texture<V: GlowVertexAttribs>(graphics: &Graphics<V>, path: impl AsRef<P
     let info = reader.next_frame(&mut buf).unwrap();
     let bytes = &buf[..info.buffer_size()];
     graphics
-        .texture(info.width, info.height, 1, GlowTextureFormat::Rgba, bytes)
+        .texture(
+            info.width,
+            info.height,
+            1,
+            GlowTextureFormat::Rgba,
+            Some(bytes),
+        )
         .unwrap()
 }

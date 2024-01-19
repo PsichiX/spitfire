@@ -1,3 +1,4 @@
+use crate::utils::{FontMap, ResourceRef, ShaderRef, TextureRef, Vertex};
 use spitfire_fontdue::TextRenderer;
 use spitfire_glow::{
     graphics::{Graphics, Shader, Texture},
@@ -5,11 +6,6 @@ use spitfire_glow::{
 };
 use std::{borrow::Cow, collections::HashMap};
 use vek::{Rgba, Transform};
-
-use crate::{
-    prelude::FontMap,
-    utils::{ResourceRef, ShaderRef, TextureRef, Vertex},
-};
 
 #[derive(Default, Clone)]
 pub struct DrawContext {
@@ -51,8 +47,8 @@ impl DrawContext {
                 width as _,
                 height as _,
                 depth as _,
-                GlowTextureFormat::Luminance,
-                self.text_renderer.image(),
+                GlowTextureFormat::Monochromatic,
+                Some(self.text_renderer.image()),
             );
         }
     }

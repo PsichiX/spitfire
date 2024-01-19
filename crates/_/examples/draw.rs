@@ -49,7 +49,7 @@ impl Default for State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
-        graphics.color = [0.25, 0.25, 0.25];
+        graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
         graphics.main_camera.scaling = CameraScaling::FitToView {
             size: 1000.0.into(),
@@ -262,7 +262,7 @@ fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>, pages: u32)
             info.height / pages,
             pages,
             GlowTextureFormat::Rgba,
-            bytes,
+            Some(bytes),
         )
         .unwrap()
 }
@@ -273,10 +273,10 @@ fn checkerboard_texture(graphics: &Graphics<Vertex>) -> Texture {
             4,
             4,
             1,
-            GlowTextureFormat::Luminance,
-            &[
+            GlowTextureFormat::Monochromatic,
+            Some(&[
                 0, 255, 0, 255, 255, 0, 255, 0, 0, 255, 0, 255, 255, 0, 255, 0,
-            ],
+            ]),
         )
         .unwrap()
 }

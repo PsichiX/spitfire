@@ -4,10 +4,11 @@ use crate::renderer::{
 };
 use bytemuck::{Pod, Zeroable};
 use glow::{
-    Context, HasContext, Program as GlowProgram, Shader as GlowShader, Texture as GlowTexture,
-    BLEND, CLAMP_TO_EDGE, COLOR_BUFFER_BIT, FRAGMENT_SHADER, NEAREST, SCISSOR_TEST,
-    TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R, TEXTURE_WRAP_S,
-    TEXTURE_WRAP_T, UNSIGNED_BYTE, VERTEX_SHADER,
+    Context, Framebuffer as GlowFrameBuffer, HasContext, Program as GlowProgram,
+    Shader as GlowShader, Texture as GlowTexture, BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0,
+    COLOR_BUFFER_BIT, FRAGMENT_SHADER, FRAMEBUFFER, NEAREST, SCISSOR_TEST, TEXTURE_2D_ARRAY,
+    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T,
+    UNSIGNED_BYTE, VERTEX_SHADER,
 };
 use spitfire_core::{VertexStream, VertexStreamRenderer};
 use std::{
@@ -106,10 +107,11 @@ impl StrongContext {
 
 pub struct Graphics<V: GlowVertexAttribs> {
     pub main_camera: Camera,
-    pub color: [f32; 3],
+    pub color: [f32; 4],
     pub stream: VertexStream<V, GraphicsBatch>,
     state: GlowState,
     context: StrongContext,
+    surface_stack: Vec<(Surface, Vec2<f32>, [f32; 4])>,
 }
 
 impl<V: GlowVertexAttribs> Drop for Graphics<V> {
@@ -124,10 +126,11 @@ impl<V: GlowVertexAttribs> Graphics<V> {
     pub fn new(context: Context) -> Self {
         Self {
             main_camera: Default::default(),
-            color: [1.0, 1.0, 1.0],
+            color: [1.0, 1.0, 1.0, 1.0],
             stream: Default::default(),
             state: Default::default(),
             context: StrongContext::new(context),
+            surface_stack: Default::default(),
         }
     }
 
@@ -135,8 +138,63 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         self.context.get()
     }
 
+    pub fn surface(&self, attachments: Vec<SurfaceAttachment>) -> Result<Surface, String> {
+        if attachments.is_empty() {
+            return Err("Surface must have at least one texture!".to_owned());
+        }
+        for (index, attachment) in attachments.iter().enumerate() {
+            if attachment.texture.depth() < attachment.layer as _ {
+                return Err(format!(
+                    "Surface texture #{} has layer: {} out of texture depth range: {}",
+                    index,
+                    attachment.layer,
+                    attachment.texture.depth()
+                ));
+            }
+        }
+        if let [first, rest @ ..] = attachments.as_slice() {
+            let width = first.texture.width();
+            let height = first.texture.height();
+            if rest
+                .iter()
+                .any(|item| item.texture.width() != width || item.texture.height() != height)
+            {
+                return Err(format!(
+                    "Some surface texture has different size than expected: {} x {}",
+                    width, height
+                ));
+            }
+        }
+        unsafe {
+            if let Some(context) = self.context.get() {
+                let framebuffer = context.create_framebuffer()?;
+                context.bind_framebuffer(FRAMEBUFFER, Some(framebuffer));
+                for (index, attachment) in attachments.iter().enumerate() {
+                    context.framebuffer_texture_layer(
+                        FRAMEBUFFER,
+                        COLOR_ATTACHMENT0 + index as u32,
+                        Some(attachment.texture.handle()),
+                        0,
+                        attachment.layer as _,
+                    );
+                }
+                context.bind_framebuffer(FRAMEBUFFER, None);
+                Ok(Surface {
+                    inner: Rc::new(SurfaceInner {
+                        context: self.context.0.clone(),
+                        framebuffer,
+                        attachments,
+                        color: Default::default(),
+                    }),
+                })
+            } else {
+                Err("Invalid context".to_owned())
+            }
+        }
+    }
+
     pub fn pixel_texture(&self, color: [u8; 3]) -> Result<Texture, String> {
-        self.texture(1, 1, 1, GlowTextureFormat::Rgb, &color)
+        self.texture(1, 1, 1, GlowTextureFormat::Rgb, Some(&color))
     }
 
     pub fn texture(
@@ -145,7 +203,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         height: u32,
         depth: u32,
         format: GlowTextureFormat,
-        data: &[u8],
+        data: Option<&[u8]>,
     ) -> Result<Texture, String> {
         unsafe {
             if let Some(context) = self.context.get() {
@@ -155,6 +213,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                         context: self.context.0.clone(),
                         texture,
                         size: Cell::new((0, 0, 0)),
+                        format: Cell::new(format),
                     }),
                 };
                 result.upload(width, height, depth, format, data);
@@ -211,17 +270,28 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         }
     }
 
-    pub fn prepare_frame(&self) {
+    pub fn prepare_frame(&self, clear: bool) -> Result<(), String> {
         unsafe {
             if let Some(context) = self.context.get() {
-                let [r, g, b] = self.color;
+                context.viewport(
+                    0,
+                    0,
+                    self.main_camera.screen_size.x as _,
+                    self.main_camera.screen_size.y as _,
+                );
                 context.bind_texture(TEXTURE_2D_ARRAY, None);
                 context.bind_vertex_array(None);
                 context.use_program(None);
                 context.disable(BLEND);
                 context.disable(SCISSOR_TEST);
-                context.clear_color(r, g, b, 1.0);
-                context.clear(COLOR_BUFFER_BIT);
+                if clear {
+                    let [r, g, b, a] = self.color;
+                    context.clear_color(r, g, b, a);
+                    context.clear(COLOR_BUFFER_BIT);
+                }
+                Ok(())
+            } else {
+                Err("Invalid context".to_owned())
             }
         }
     }
@@ -235,6 +305,44 @@ impl<V: GlowVertexAttribs> Graphics<V> {
             Ok(())
         } else {
             Err("Invalid context".to_owned())
+        }
+    }
+
+    pub fn push_surface(&mut self, surface: Surface) -> Result<(), String> {
+        unsafe {
+            let old_size = self.main_camera.screen_size;
+            let old_color = self.color;
+            self.main_camera.screen_size.x = surface.width() as _;
+            self.main_camera.screen_size.y = surface.height() as _;
+            self.color = surface.color();
+            if let Some(context) = self.context.get() {
+                context.bind_framebuffer(FRAMEBUFFER, Some(surface.handle()));
+                self.surface_stack.push((surface, old_size, old_color));
+                Ok(())
+            } else {
+                Err("Invalid context".to_owned())
+            }
+        }
+    }
+
+    pub fn pop_surface(&mut self) -> Result<Option<Surface>, String> {
+        unsafe {
+            if let Some(context) = self.context.get() {
+                if let Some((surface, size, color)) = self.surface_stack.pop() {
+                    self.main_camera.screen_size = size;
+                    self.color = color;
+                    if let Some((surface, _, _)) = self.surface_stack.last() {
+                        context.bind_framebuffer(FRAMEBUFFER, Some(surface.handle()));
+                    } else {
+                        context.bind_framebuffer(FRAMEBUFFER, None);
+                    }
+                    Ok(Some(surface))
+                } else {
+                    Ok(None)
+                }
+            } else {
+                Err("Invalid context".to_owned())
+            }
         }
     }
 }
@@ -407,10 +515,78 @@ impl Into<GlowBatch> for GraphicsBatch {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SurfaceAttachment {
+    pub texture: Texture,
+    pub layer: usize,
+}
+
+impl From<Texture> for SurfaceAttachment {
+    fn from(texture: Texture) -> Self {
+        Self { texture, layer: 0 }
+    }
+}
+
+#[derive(Debug)]
+struct SurfaceInner {
+    context: MaybeContext,
+    framebuffer: GlowFrameBuffer,
+    attachments: Vec<SurfaceAttachment>,
+    color: Cell<[f32; 4]>,
+}
+
+impl Drop for SurfaceInner {
+    fn drop(&mut self) {
+        unsafe {
+            if let Some(context) = self.context.get() {
+                context.delete_framebuffer(self.framebuffer);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Surface {
+    inner: Rc<SurfaceInner>,
+}
+
+impl Surface {
+    pub fn handle(&self) -> GlowFrameBuffer {
+        self.inner.framebuffer
+    }
+
+    pub fn width(&self) -> u32 {
+        self.inner.attachments[0].texture.width()
+    }
+
+    pub fn height(&self) -> u32 {
+        self.inner.attachments[0].texture.height()
+    }
+
+    pub fn attachments(&self) -> &[SurfaceAttachment] {
+        &self.inner.attachments
+    }
+
+    pub fn color(&self) -> [f32; 4] {
+        self.inner.color.get()
+    }
+
+    pub fn set_color(&mut self, value: [f32; 4]) {
+        self.inner.color.set(value);
+    }
+}
+
+impl PartialEq for Surface {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
 #[derive(Debug)]
 struct TextureInner {
     context: MaybeContext,
     texture: GlowTexture,
+    format: Cell<GlowTextureFormat>,
     size: Cell<(u32, u32, u32)>,
 }
 
@@ -446,13 +622,17 @@ impl Texture {
         self.inner.size.get().2
     }
 
+    pub fn format(&self) -> GlowTextureFormat {
+        self.inner.format.get()
+    }
+
     pub fn upload(
         &mut self,
         width: u32,
         height: u32,
         depth: u32,
         format: GlowTextureFormat,
-        data: &[u8],
+        data: Option<&[u8]>,
     ) {
         unsafe {
             if let Some(context) = self.inner.context.get() {
@@ -472,9 +652,10 @@ impl Texture {
                     0,
                     format.into_gl(),
                     UNSIGNED_BYTE,
-                    Some(data),
+                    data,
                 );
                 self.inner.size.set((width, height, depth));
+                self.inner.format.set(format);
             }
         }
     }

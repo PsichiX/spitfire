@@ -1,8 +1,8 @@
 use bytemuck::{checked::cast_slice, Pod};
 use glow::{
     Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND, DST_COLOR,
-    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, LUMINANCE, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, RGB,
-    RGBA, RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D_ARRAY,
+    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, RED, RGB, RGBA,
+    RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D_ARRAY,
     TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TRIANGLES, UNSIGNED_INT, ZERO,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
@@ -83,7 +83,7 @@ pub enum GlowTextureFormat {
     #[default]
     Rgba,
     Rgb,
-    Luminance,
+    Monochromatic,
     Data16,
     Data32,
 }
@@ -93,7 +93,7 @@ impl GlowTextureFormat {
         match self {
             Self::Rgba => RGBA,
             Self::Rgb => RGB,
-            Self::Luminance => LUMINANCE,
+            Self::Monochromatic => RED,
             Self::Data16 => RGBA16F,
             Self::Data32 => RGBA32F,
         }

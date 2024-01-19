@@ -147,7 +147,13 @@ impl State {
         self.draw.textures.insert(
             name.into(),
             graphics
-                .texture(info.width, info.height, 1, GlowTextureFormat::Rgba, bytes)
+                .texture(
+                    info.width,
+                    info.height,
+                    1,
+                    GlowTextureFormat::Rgba,
+                    Some(bytes),
+                )
                 .unwrap(),
         );
     }
@@ -373,7 +379,7 @@ impl State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
-        graphics.color = [0.25, 0.25, 0.25];
+        graphics.color = [0.25, 0.25, 0.25, 1.0];
 
         self.load_shader(
             graphics,

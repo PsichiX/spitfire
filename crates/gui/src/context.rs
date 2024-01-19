@@ -94,8 +94,8 @@ impl GuiContext {
                 w as _,
                 h as _,
                 d as _,
-                GlowTextureFormat::Luminance,
-                self.text_renderer.image(),
+                GlowTextureFormat::Monochromatic,
+                Some(self.text_renderer.image()),
             );
         } else {
             self.glyphs_texture = graphics
@@ -103,8 +103,8 @@ impl GuiContext {
                     w as _,
                     h as _,
                     d as _,
-                    GlowTextureFormat::Luminance,
-                    self.text_renderer.image(),
+                    GlowTextureFormat::Monochromatic,
+                    Some(self.text_renderer.image()),
                 )
                 .ok();
         }

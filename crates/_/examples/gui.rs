@@ -15,7 +15,7 @@ struct State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
-        graphics.color = [0.25, 0.25, 0.25];
+        graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
 
         self.draw.shaders.insert(
@@ -125,6 +125,12 @@ fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>) -> Texture 
     let info = reader.next_frame(&mut buf).unwrap();
     let bytes = &buf[..info.buffer_size()];
     graphics
-        .texture(info.width, info.height, 1, GlowTextureFormat::Rgba, bytes)
+        .texture(
+            info.width,
+            info.height,
+            1,
+            GlowTextureFormat::Rgba,
+            Some(bytes),
+        )
         .unwrap()
 }

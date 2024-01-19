@@ -43,7 +43,7 @@ pub struct AppConfig {
     pub double_buffer: Option<bool>,
     pub hardware_acceleration: Option<bool>,
     pub refresh_on_event: bool,
-    pub color: [f32; 3],
+    pub color: [f32; 4],
 }
 
 impl Default for AppConfig {
@@ -60,7 +60,7 @@ impl Default for AppConfig {
             double_buffer: Some(true),
             hardware_acceleration: Some(true),
             refresh_on_event: false,
-            color: [1.0, 1.0, 1.0],
+            color: [1.0, 1.0, 1.0, 1.0],
         }
     }
 }
@@ -121,7 +121,7 @@ impl AppConfig {
         self
     }
 
-    pub fn color(mut self, v: impl Into<[f32; 3]>) -> Self {
+    pub fn color(mut self, v: impl Into<[f32; 4]>) -> Self {
         self.color = v.into();
         self
     }
@@ -300,7 +300,7 @@ impl<V: GlowVertexAttribs> App<V> {
                             }
                             graphics.main_camera.screen_size.x = width as _;
                             graphics.main_camera.screen_size.y = height as _;
-                            graphics.prepare_frame();
+                            let _ = graphics.prepare_frame(true);
                             state.on_redraw(&mut graphics);
                             let _ = graphics.draw();
                             let _ = context.swap_buffers();
@@ -347,14 +347,6 @@ impl<V: GlowVertexAttribs> App<V> {
                         let scaled_width = width * window.scale_factor();
                         let scaled_height = height * window.scale_factor();
                         window.set_inner_size(LogicalSize::new(width, height));
-                        unsafe {
-                            graphics.context().unwrap().viewport(
-                                0,
-                                0,
-                                scaled_width as _,
-                                scaled_height as _,
-                            );
-                        }
                         graphics.main_camera.screen_size.x = scaled_width as _;
                         graphics.main_camera.screen_size.y = scaled_height as _;
                         graphics.prepare_frame();
