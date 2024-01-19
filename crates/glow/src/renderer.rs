@@ -1,7 +1,7 @@
 use bytemuck::{checked::cast_slice, Pod};
 use glow::{
     Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND, DST_COLOR,
-    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, RED, RGB, RGBA,
+    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, RGB, RGBA,
     RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D_ARRAY,
     TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TRIANGLES, UNSIGNED_INT, ZERO,
 };
@@ -93,7 +93,10 @@ impl GlowTextureFormat {
         match self {
             Self::Rgba => RGBA,
             Self::Rgb => RGB,
-            Self::Monochromatic => RED,
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::Monochromatic => glow::RED,
+            #[cfg(target_arch = "wasm32")]
+            Self::Monochromatic => glow::LUMINANCE,
             Self::Data16 => RGBA16F,
             Self::Data32 => RGBA32F,
         }
