@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-draw"
-version = "0.27.2"
+version = "0.28.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Drawing helper module for Spitfire toolset"
@@ -11,9 +11,9 @@ documentation = "https://docs.rs/spitfire-draw"
 readme = "../../README.md"
 
 [dependencies]
-spitfire-core = { version = "0.27", path = "../core" }
-spitfire-glow = { version = "0.27", path = "../glow" }
-spitfire-fontdue = { version = "0.27", path = "../fontdue" }
+spitfire-core = { version = "0.28", path = "../core" }
+spitfire-glow = { version = "0.28", path = "../glow" }
+spitfire-fontdue = { version = "0.28", path = "../fontdue" }
 bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.8"
 vek = "0.16"
