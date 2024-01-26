@@ -106,7 +106,7 @@ impl InputAction {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub struct InputAxis(f32);
+pub struct InputAxis(pub f32);
 
 impl InputAxis {
     pub fn threshold(self, value: f32) -> bool {
