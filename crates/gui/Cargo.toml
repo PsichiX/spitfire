@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-gui"
-version = "0.28.0"
+version = "0.28.1"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "GUI module for Spitfire toolset"
@@ -15,8 +15,8 @@ spitfire-glow = { version = "0.28", path = "../glow" }
 spitfire-fontdue = { version = "0.28", path = "../fontdue" }
 spitfire-draw = { version = "0.28", path = "../draw" }
 spitfire-input = { version = "0.28", path = "../input" }
-raui-core = "0.62"
-raui-immediate = "0.62"
+raui-core = "0.63"
+raui-immediate = "0.63"
 vek = "0.16"
 fontdue = "0.8"
 
