@@ -107,10 +107,16 @@ impl PrimitivesEmitter {
         }
     }
 
-    pub fn emit_regular_polygon(&self, vertices: usize, radius: f32) -> RegularPolygonDraw {
+    pub fn emit_regular_polygon(
+        &self,
+        vertices: usize,
+        position: Vec2<f32>,
+        radius: f32,
+    ) -> RegularPolygonDraw {
         RegularPolygonDraw {
             emitter: self,
             vertices,
+            position,
             radius,
             region: Rect {
                 x: 0.0,
@@ -123,10 +129,16 @@ impl PrimitivesEmitter {
         }
     }
 
-    pub fn emit_circle(&self, radius: f32, maximum_error: f32) -> RegularPolygonDraw {
+    pub fn emit_circle(
+        &self,
+        position: Vec2<f32>,
+        radius: f32,
+        maximum_error: f32,
+    ) -> RegularPolygonDraw {
         RegularPolygonDraw {
             emitter: self,
             vertices: (PI / (1.0 - maximum_error / radius).acos()).ceil() as _,
+            position,
             radius,
             region: Rect {
                 x: 0.0,
@@ -350,6 +362,7 @@ impl<'a, I: IntoIterator<Item = Vertex>> Drawable for TriangleStripDraw<'a, I> {
 pub struct RegularPolygonDraw<'a> {
     emitter: &'a PrimitivesEmitter,
     vertices: usize,
+    position: Vec2<f32>,
     radius: f32,
     pub region: Rect<f32, f32>,
     pub page: f32,
@@ -380,7 +393,10 @@ impl<'a> Drawable for RegularPolygonDraw<'a> {
                     let u = (x + 1.0) * 0.5;
                     let v = (y + 1.0) * 0.5;
                     Vertex {
-                        position: [x * self.radius, y * self.radius],
+                        position: [
+                            self.position.x + x * self.radius,
+                            self.position.y + y * self.radius,
+                        ],
                         uv: [
                             self.region.x + self.region.w * u,
                             self.region.y + self.region.h * v,
