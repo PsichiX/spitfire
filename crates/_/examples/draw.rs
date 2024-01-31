@@ -127,6 +127,19 @@ impl AppState<Vertex> for State {
         self.context.push_shader(&ShaderRef::name("image"));
         self.context.push_blending(GlowBlending::Alpha);
 
+        // Drawing lines is done with primitives emitter. You can emit different
+        // primitives, both textured and colored, all in series or one-by-one.
+        PrimitivesEmitter::default()
+            .shader(ShaderRef::name("color"))
+            .emit_lines([
+                Vec2::new(-490.0, -490.0),
+                Vec2::new(490.0, -490.0),
+                Vec2::new(-490.0, 490.0),
+                Vec2::new(490.0, 490.0),
+            ])
+            .thickness(5.0)
+            .draw(&mut self.context, graphics);
+
         // Tile maps are rendered by emitting tiles with iterators.
         // Here TileMap container is providing tiles it stores.
         TilesEmitter::default()

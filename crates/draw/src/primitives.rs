@@ -266,7 +266,10 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
                         let normal = Vec2 {
                             x: tangent.y,
                             y: -tangent.x,
-                        };
+                        }
+                        .try_normalized()
+                        .unwrap_or_default()
+                            * self.thickness;
                         push(prev, next, normal);
                         prev = next;
                     }
