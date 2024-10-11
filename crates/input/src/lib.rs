@@ -388,7 +388,7 @@ impl InputContext {
                     .cmp(&layer)
                     .then(Ordering::Less)
             })
-            .map_or_else(|index| index, |index| index);
+            .unwrap_or_else(|index| index);
         self.mappings_stack.insert(index, (id, mapping));
         id
     }
