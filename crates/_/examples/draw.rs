@@ -140,6 +140,18 @@ impl AppState<Vertex> for State {
             .thickness(5.0)
             .draw(&mut self.context, graphics);
 
+        // Brush is a special kind of lines drawer, where segments vertices are connected.
+        PrimitivesEmitter::default()
+            .shader(ShaderRef::name("color"))
+            .emit_brush([
+                (Vec2::new(0.0, -450.0), 0.0, Rgba::red()),
+                (Vec2::new(450.0, 0.0), 10.0, Rgba::blue()),
+                (Vec2::new(0.0, 450.0), 20.0, Rgba::green()),
+                (Vec2::new(-450.0, 0.0), 10.0, Rgba::yellow()),
+                (Vec2::new(0.0, -450.0), 0.0, Rgba::red()),
+            ])
+            .draw(&mut self.context, graphics);
+
         // Tile maps are rendered by emitting tiles with iterators.
         // Here TileMap container is providing tiles it stores.
         TilesEmitter::default()

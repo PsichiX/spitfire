@@ -76,6 +76,23 @@ impl PrimitivesEmitter {
         }
     }
 
+    pub fn emit_brush<I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>>(
+        &self,
+        vertices: I,
+    ) -> BrushDraw<I> {
+        BrushDraw {
+            emitter: self,
+            vertices: RefCell::new(Some(vertices)),
+            region: Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 1.0,
+                h: 1.0,
+            },
+            page: 0.0,
+        }
+    }
+
     pub fn emit_triangles<I: IntoIterator<Item = [Vertex; 3]>>(
         &self,
         vertices: I,
@@ -233,6 +250,42 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'a, I> {
 
 impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+        fn push(
+            stream: &mut VertexStream<Vertex, GraphicsBatch>,
+            region: Rect<f32, f32>,
+            page: f32,
+            color: [f32; 4],
+            prev: Vec2<f32>,
+            next: Vec2<f32>,
+            normal: Vec2<f32>,
+        ) {
+            stream.extend(
+                [
+                    Vertex {
+                        position: (prev - normal).into_array(),
+                        uv: [region.x, region.y, page],
+                        color,
+                    },
+                    Vertex {
+                        position: (prev + normal).into_array(),
+                        uv: [region.x + region.w, region.y, page],
+                        color,
+                    },
+                    Vertex {
+                        position: (next + normal).into_array(),
+                        uv: [region.x + region.w, region.y + region.h, page],
+                        color,
+                    },
+                    Vertex {
+                        position: (next - normal).into_array(),
+                        uv: [region.x, region.y + region.h, page],
+                        color,
+                    },
+                ],
+                [Triangle { a: 0, b: 1, c: 2 }, Triangle { a: 2, b: 3, c: 0 }],
+            );
+        }
+
         self.emitter
             .stream_transformed(context, graphics, |stream| {
                 if let Some(vertices) = self.vertices.borrow_mut().take() {
@@ -242,37 +295,6 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
                     };
                     let start = prev;
                     let color = self.tint.into_array();
-                    let mut push = |prev: Vec2<f32>, next: Vec2<f32>, normal: Vec2<f32>| {
-                        stream.extend(
-                            [
-                                Vertex {
-                                    position: (prev - normal).into_array(),
-                                    uv: [self.region.x, self.region.y, self.page],
-                                    color,
-                                },
-                                Vertex {
-                                    position: (prev + normal).into_array(),
-                                    uv: [self.region.x + self.region.w, self.region.y, self.page],
-                                    color,
-                                },
-                                Vertex {
-                                    position: (next + normal).into_array(),
-                                    uv: [
-                                        self.region.x + self.region.w,
-                                        self.region.y + self.region.h,
-                                        self.page,
-                                    ],
-                                    color,
-                                },
-                                Vertex {
-                                    position: (next - normal).into_array(),
-                                    uv: [self.region.x, self.region.y + self.region.h, self.page],
-                                    color,
-                                },
-                            ],
-                            [Triangle { a: 0, b: 1, c: 2 }, Triangle { a: 2, b: 3, c: 0 }],
-                        );
-                    };
                     for next in vertices {
                         let tangent = next - prev;
                         let normal = Vec2 {
@@ -282,7 +304,7 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
                         .try_normalized()
                         .unwrap_or_default()
                             * self.thickness;
-                        push(prev, next, normal);
+                        push(stream, self.region, self.page, color, prev, next, normal);
                         prev = next;
                     }
                     if self.looped {
@@ -290,8 +312,121 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
                         let normal = Vec2 {
                             x: tangent.y,
                             y: -tangent.x,
-                        };
-                        push(prev, start, normal);
+                        }
+                        .try_normalized()
+                        .unwrap_or_default()
+                            * self.thickness;
+                        push(stream, self.region, self.page, color, prev, start, normal);
+                    }
+                }
+            });
+    }
+}
+
+pub struct BrushDraw<'a, I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> {
+    emitter: &'a PrimitivesEmitter,
+    vertices: RefCell<Option<I>>,
+    pub region: Rect<f32, f32>,
+    pub page: f32,
+}
+
+impl<'a, I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> BrushDraw<'a, I> {
+    pub fn region_page(mut self, region: Rect<f32, f32>, page: f32) -> Self {
+        self.region = region;
+        self.page = page;
+        self
+    }
+}
+
+impl<'a, I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> Drawable for BrushDraw<'a, I> {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+        fn push(
+            stream: &mut VertexStream<Vertex, GraphicsBatch>,
+            region: Rect<f32, f32>,
+            page: f32,
+            prev: (Vec2<f32>, f32, Rgba<f32>),
+            next: (Vec2<f32>, f32, Rgba<f32>),
+            normal_prev: Vec2<f32>,
+            normal_next: Vec2<f32>,
+        ) {
+            stream.extend(
+                [
+                    Vertex {
+                        position: ((prev.0 + next.0) * 0.5).into_array(),
+                        uv: [region.x, region.y, page],
+                        color: ((prev.2 + next.2) * 0.5).into_array(),
+                    },
+                    Vertex {
+                        position: (prev.0 - normal_prev * prev.1).into_array(),
+                        uv: [region.x, region.y, page],
+                        color: prev.2.into_array(),
+                    },
+                    Vertex {
+                        position: (prev.0 + normal_prev * prev.1).into_array(),
+                        uv: [region.x + region.w, region.y, page],
+                        color: prev.2.into_array(),
+                    },
+                    Vertex {
+                        position: (next.0 + normal_next * next.1).into_array(),
+                        uv: [region.x + region.w, region.y + region.h, page],
+                        color: next.2.into_array(),
+                    },
+                    Vertex {
+                        position: (next.0 - normal_next * next.1).into_array(),
+                        uv: [region.x, region.y + region.h, page],
+                        color: next.2.into_array(),
+                    },
+                ],
+                [
+                    Triangle { a: 0, b: 1, c: 2 },
+                    Triangle { a: 0, b: 2, c: 3 },
+                    Triangle { a: 0, b: 3, c: 4 },
+                    Triangle { a: 0, b: 4, c: 1 },
+                ],
+            );
+        }
+
+        self.emitter
+            .stream_transformed(context, graphics, |stream| {
+                if let Some(vertices) = self.vertices.borrow_mut().take() {
+                    let mut vertices = vertices.into_iter().peekable();
+                    let Some(mut prev) = vertices.next() else {
+                        return;
+                    };
+                    let mut prev_tangent = Option::<Vec2<f32>>::None;
+                    while let Some(curr) = vertices.next() {
+                        let next = vertices.peek().copied();
+                        let curr_tangent = (curr.0 - prev.0).try_normalized().unwrap_or_default();
+                        let tangent = prev_tangent
+                            .replace(curr_tangent)
+                            .and_then(|tangent| (curr_tangent + tangent).try_normalized())
+                            .unwrap_or(curr_tangent);
+                        let next_tangent = next
+                            .and_then(|next| (next.0 - curr.0).try_normalized())
+                            .and_then(|tangent| (curr_tangent + tangent).try_normalized())
+                            .unwrap_or(curr_tangent);
+                        let normal_prev = Vec2 {
+                            x: tangent.y,
+                            y: -tangent.x,
+                        }
+                        .try_normalized()
+                        .unwrap_or_default();
+                        let normal_next = Vec2 {
+                            x: next_tangent.y,
+                            y: -next_tangent.x,
+                        }
+                        .try_normalized()
+                        .unwrap_or_default();
+                        push(
+                            stream,
+                            self.region,
+                            self.page,
+                            prev,
+                            curr,
+                            normal_prev,
+                            normal_next,
+                        );
+                        prev = curr;
                     }
                 }
             });
