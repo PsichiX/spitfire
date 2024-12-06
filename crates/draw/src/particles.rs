@@ -137,7 +137,7 @@ pub struct ParticleDraw<'a, I: IntoIterator<Item = ParticleInstance>> {
     instances: RefCell<Option<I>>,
 }
 
-impl<'a, I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'a, I> {
+impl<I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'_, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         let instances = match self.instances.borrow_mut().take() {
             Some(instances) => instances,

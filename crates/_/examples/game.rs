@@ -38,34 +38,33 @@ impl From<usize> for Element {
 }
 
 // Used to map element to its image asset name.
-impl ToString for Element {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Element {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Fire => "fire",
-            Self::Water => "water",
-            Self::Grass => "grass",
+            Self::Fire => write!(f, "fire"),
+            Self::Water => write!(f, "water"),
+            Self::Grass => write!(f, "grass"),
         }
-        .to_owned()
     }
 }
 
 // Used to get icon color for given element.
-impl Into<Color> for Element {
-    fn into(self) -> Color {
-        match self {
-            Self::Fire => Color {
+impl From<Element> for Color {
+    fn from(val: Element) -> Self {
+        match val {
+            Element::Fire => Color {
                 r: 1.0,
                 g: 0.5,
                 b: 0.5,
                 a: 1.0,
             },
-            Self::Water => Color {
+            Element::Water => Color {
                 r: 0.5,
                 g: 0.5,
                 b: 1.0,
                 a: 1.0,
             },
-            Self::Grass => Color {
+            Element::Grass => Color {
                 r: 0.5,
                 g: 1.0,
                 b: 0.5,
@@ -79,7 +78,13 @@ impl Into<Color> for Element {
 // Think of it as: self - player, other - enemy.
 impl PartialOrd for Element {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(match (self, other) {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Element {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
             (Self::Fire, Self::Fire) | (Self::Water, Self::Water) | (Self::Grass, Self::Grass) => {
                 Ordering::Equal
             }
@@ -89,13 +94,7 @@ impl PartialOrd for Element {
             (Self::Fire, Self::Grass) | (Self::Water, Self::Fire) | (Self::Grass, Self::Water) => {
                 Ordering::Greater
             }
-        })
-    }
-}
-
-impl Ord for Element {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        }
     }
 }
 
@@ -410,9 +409,11 @@ impl AppState<Vertex> for State {
         let pointer_trigger = InputActionRef::default();
 
         // Setup GUI inputs set out of these inputs.
-        let mut inputs = GuiInteractionsInputs::default();
-        inputs.pointer_position = ArrayInputCombinator::new([pointer_x.clone(), pointer_y.clone()]);
-        inputs.pointer_trigger = pointer_trigger.clone();
+        let inputs = GuiInteractionsInputs {
+            pointer_position: ArrayInputCombinator::new([pointer_x.clone(), pointer_y.clone()]),
+            pointer_trigger: pointer_trigger.clone(),
+            ..Default::default()
+        };
         self.gui.interactions.inputs = inputs;
 
         // And setup input mappings that will update these inputs.

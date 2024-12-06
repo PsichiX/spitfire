@@ -159,7 +159,7 @@ impl TilesEmitter {
         &'a self,
         set: &'a TileSet,
         instances: I,
-    ) -> TilesDraw<I> {
+    ) -> TilesDraw<'a, I> {
         TilesDraw {
             emitter: self,
             tileset: set,
@@ -186,7 +186,7 @@ pub struct TilesDraw<'a, I: IntoIterator<Item = TileInstance>> {
     instances: RefCell<Option<I>>,
 }
 
-impl<'a, I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'a, I> {
+impl<I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'_, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         let batch = GraphicsBatch {
             shader: context.shader(self.tileset.shader.as_ref()),

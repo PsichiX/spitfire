@@ -225,7 +225,7 @@ pub struct LinesDraw<'a, I: IntoIterator<Item = Vec2<f32>>> {
     pub looped: bool,
 }
 
-impl<'a, I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'a, I> {
+impl<I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'_, I> {
     pub fn region_page(mut self, region: Rect<f32, f32>, page: f32) -> Self {
         self.region = region;
         self.page = page;
@@ -248,7 +248,7 @@ impl<'a, I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'a, I> {
     }
 }
 
-impl<'a, I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'a, I> {
+impl<I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'_, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         fn push(
             stream: &mut VertexStream<Vertex, GraphicsBatch>,
@@ -330,7 +330,7 @@ pub struct BrushDraw<'a, I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> {
     pub page: f32,
 }
 
-impl<'a, I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> BrushDraw<'a, I> {
+impl<I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> BrushDraw<'_, I> {
     pub fn region_page(mut self, region: Rect<f32, f32>, page: f32) -> Self {
         self.region = region;
         self.page = page;
@@ -338,7 +338,7 @@ impl<'a, I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> BrushDraw<'a, I> {
     }
 }
 
-impl<'a, I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> Drawable for BrushDraw<'a, I> {
+impl<I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> Drawable for BrushDraw<'_, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         fn push(
             stream: &mut VertexStream<Vertex, GraphicsBatch>,
@@ -439,7 +439,7 @@ pub struct TrianglesDraw<'a, I: IntoIterator<Item = [Vertex; 3]>> {
     pub tint: Rgba<f32>,
 }
 
-impl<'a, I: IntoIterator<Item = [Vertex; 3]>> Drawable for TrianglesDraw<'a, I> {
+impl<I: IntoIterator<Item = [Vertex; 3]>> Drawable for TrianglesDraw<'_, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         self.emitter
             .stream_transformed(context, graphics, |stream| {
@@ -467,7 +467,7 @@ pub struct TriangleFanDraw<'a, I: IntoIterator<Item = Vertex>> {
     vertices: RefCell<Option<I>>,
 }
 
-impl<'a, I: IntoIterator<Item = Vertex>> Drawable for TriangleFanDraw<'a, I> {
+impl<I: IntoIterator<Item = Vertex>> Drawable for TriangleFanDraw<'_, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         self.emitter
             .stream_transformed(context, graphics, |stream| {
@@ -483,7 +483,7 @@ pub struct TriangleStripDraw<'a, I: IntoIterator<Item = Vertex>> {
     vertices: RefCell<Option<I>>,
 }
 
-impl<'a, I: IntoIterator<Item = Vertex>> Drawable for TriangleStripDraw<'a, I> {
+impl<I: IntoIterator<Item = Vertex>> Drawable for TriangleStripDraw<'_, I> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         self.emitter
             .stream_transformed(context, graphics, |stream| {
@@ -504,7 +504,7 @@ pub struct RegularPolygonDraw<'a> {
     pub tint: Rgba<f32>,
 }
 
-impl<'a> RegularPolygonDraw<'a> {
+impl RegularPolygonDraw<'_> {
     pub fn region_page(mut self, region: Rect<f32, f32>, page: f32) -> Self {
         self.region = region;
         self.page = page;
@@ -517,7 +517,7 @@ impl<'a> RegularPolygonDraw<'a> {
     }
 }
 
-impl<'a> Drawable for RegularPolygonDraw<'a> {
+impl Drawable for RegularPolygonDraw<'_> {
     fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
         let color = self.tint.into_array();
         self.emitter

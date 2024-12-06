@@ -13,7 +13,7 @@ pub struct GuiRenderer<'a> {
     pub text_shader: &'a ShaderRef,
 }
 
-impl<'a> GuiRenderer<'a> {
+impl GuiRenderer<'_> {
     fn draw_node(&mut self, node: &WidgetUnit, mapping: &CoordsMapping, layout: &Layout) {
         match node {
             WidgetUnit::None | WidgetUnit::PortalBox(_) => {}
@@ -257,7 +257,7 @@ impl<'a> GuiRenderer<'a> {
     }
 }
 
-impl<'a> Renderer<(), ()> for GuiRenderer<'a> {
+impl Renderer<(), ()> for GuiRenderer<'_> {
     fn render(
         &mut self,
         tree: &WidgetUnit,

@@ -345,7 +345,7 @@ where
     }
 }
 
-impl<'a, V, B> VertexStreamRenderer<V, B> for GlowRenderer<'a, B>
+impl<V, B> VertexStreamRenderer<V, B> for GlowRenderer<'_, B>
 where
     V: GlowVertexAttribs,
     B: Into<GlowBatch> + Default + Clone,
