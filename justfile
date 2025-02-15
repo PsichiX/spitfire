@@ -7,6 +7,9 @@ format:
 build:
     cargo build --all --all-features
 
+build-wasm:
+    cargo build --all --all-features --target wasm32-unknown-unknown
+
 test:
     cargo test --all --all-features
   
@@ -16,6 +19,7 @@ clippy:
 checks:
     just format
     just build
+    just build-wasm
     just clippy
     just test
 

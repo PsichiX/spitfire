@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-input"
-version = "0.29.3"
+version = "0.29.4"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Input module for Spitfire toolset"
@@ -10,10 +10,11 @@ repository = "https://github.com/PsichiX/spitfire"
 documentation = "https://docs.rs/spitfire-input"
 readme = "../../README.md"
 
+[dependencies]
+typid = "1"
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = "0.30"
-typid = { version = "1", features = ["web"] }
+winit = "0.28"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = "0.28"
-typid = "1"

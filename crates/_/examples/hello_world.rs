@@ -7,6 +7,12 @@ use spitfire_fontdue::*;
 use spitfire_glow::prelude::*;
 use std::{collections::HashMap, fs::File, path::Path};
 
+fn main() {
+    // App can be parameterized with AppConfig, here we just
+    // use default and run it with our app state.
+    App::<Vertex>::default().run(State::default());
+}
+
 // It all starts with creating vertex type
 // that streaming renderers will use.
 // Remember to make it repr(C) and implement Pod!
@@ -239,12 +245,6 @@ impl AppState<Vertex> for State {
 
         text_renderer.render_to_stream(&mut graphics.stream);
     }
-}
-
-fn main() {
-    // App can be parameterized with AppConfig, here we just
-    // use default and run it with our app state.
-    App::<Vertex>::default().run(State::default());
 }
 
 fn texture_quad(texture: &Texture) -> [Vertex; 4] {

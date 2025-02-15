@@ -11,6 +11,10 @@ use spitfire_gui::prelude::*;
 use spitfire_input::*;
 use std::{borrow::Cow, cmp::Ordering, fs::File, path::Path};
 
+fn main() {
+    App::<Vertex>::default().run(State::default());
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Element {
     Fire,
@@ -454,10 +458,6 @@ impl AppState<Vertex> for State {
         }
         true
     }
-}
-
-fn main() {
-    App::<Vertex>::default().run(State::default());
 }
 
 #[test]

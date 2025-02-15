@@ -7,6 +7,10 @@ use vek::{Rgba, Transform, Vec2};
 
 const DELTA_TIME: f32 = 1.0 / 60.0;
 
+fn main() {
+    App::<Vertex>::default().run(State::default());
+}
+
 struct State {
     // We store drawing context for later use in app state.
     // Drawing context holds resources and stack-based states.
@@ -205,10 +209,6 @@ impl AppState<Vertex> for State {
 
         self.context.end_frame();
     }
-}
-
-fn main() {
-    App::<Vertex>::default().run(State::default());
 }
 
 struct ParticleData {

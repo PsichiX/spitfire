@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-glow"
-version = "0.29.3"
+version = "0.29.4"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "GLOW renderer module for Spitfire toolset"
@@ -20,7 +20,7 @@ glow = "0.14"
 vek = "0.17"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = "0.30"
+winit = "0.28"
 wasm-bindgen = "0.2"
 web-sys = "0.3.64"
 

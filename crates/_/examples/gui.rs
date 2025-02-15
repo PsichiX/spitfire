@@ -5,6 +5,10 @@ use spitfire_glow::prelude::*;
 use spitfire_gui::prelude::*;
 use std::{fs::File, path::Path};
 
+fn main() {
+    App::<Vertex>::default().run(State::default());
+}
+
 #[derive(Default)]
 struct State {
     draw: DrawContext,
@@ -111,10 +115,6 @@ impl AppState<Vertex> for State {
 
         self.draw.end_frame();
     }
-}
-
-fn main() {
-    App::<Vertex>::default().run(State::default());
 }
 
 fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>) -> Texture {

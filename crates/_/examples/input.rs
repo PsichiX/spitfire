@@ -8,6 +8,10 @@ use spitfire_input::*;
 use std::{fs::File, path::Path, time::Instant};
 use vek::{Quaternion, Rgba, Vec2};
 
+fn main() {
+    App::<Vertex>::default().run(State::new());
+}
+
 struct Player {
     input_move: CardinalInputCombinator,
     input_rotate: DualInputCombinator,
@@ -236,10 +240,6 @@ impl AppState<Vertex> for State {
         // Here we read our application exit input and exit if pressed.
         !self.input_exit.get().is_pressed()
     }
-}
-
-fn main() {
-    App::<Vertex>::default().run(State::new());
 }
 
 fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>) -> Texture {
