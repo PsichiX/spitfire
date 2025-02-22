@@ -74,6 +74,7 @@ impl GuiRenderer<'_> {
                                             size.x *= source_aspect;
                                         }
                                     }
+                                    let scale = mapping.scalar_scale(false);
                                     NineSliceSprite::default()
                                         .shader(self.colored_shader.clone())
                                         .tint(tint)
@@ -88,10 +89,10 @@ impl GuiRenderer<'_> {
                                             bottom: frame.source.bottom,
                                         })
                                         .margins_target(NineSliceMargins {
-                                            left: frame.destination.left,
-                                            right: frame.destination.right,
-                                            top: frame.destination.top,
-                                            bottom: frame.destination.bottom,
+                                            left: frame.destination.left * scale,
+                                            right: frame.destination.right * scale,
+                                            top: frame.destination.top * scale,
+                                            bottom: frame.destination.bottom * scale,
                                         })
                                         .frame_only(frame.frame_only)
                                         .screen_space(true)
@@ -185,6 +186,7 @@ impl GuiRenderer<'_> {
                                             size.x *= source_aspect;
                                         }
                                     }
+                                    let scale = mapping.scalar_scale(false);
                                     NineSliceSprite::single(SpriteTexture {
                                         sampler: "u_image".into(),
                                         texture: TextureRef::name(image.id.to_owned()),
@@ -203,10 +205,10 @@ impl GuiRenderer<'_> {
                                         bottom: frame.source.bottom,
                                     })
                                     .margins_target(NineSliceMargins {
-                                        left: frame.destination.left,
-                                        right: frame.destination.right,
-                                        top: frame.destination.top,
-                                        bottom: frame.destination.bottom,
+                                        left: frame.destination.left * scale,
+                                        right: frame.destination.right * scale,
+                                        top: frame.destination.top * scale,
+                                        bottom: frame.destination.bottom * scale,
                                     })
                                     .frame_only(frame.frame_only)
                                     .screen_space(true)

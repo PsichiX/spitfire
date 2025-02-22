@@ -1,4 +1,5 @@
 use fontdue::Font;
+use raui_core::layout::CoordsMappingScaling;
 use raui_immediate_widgets::prelude::*;
 use spitfire_draw::prelude::*;
 use spitfire_glow::prelude::*;
@@ -21,6 +22,7 @@ impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
         graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
+        self.gui.coords_map_scaling = CoordsMappingScaling::FitToView(512.0.into(), false);
 
         self.draw.shaders.insert(
             "color".into(),
@@ -76,12 +78,22 @@ impl AppState<Vertex> for State {
         // or floating windows, side panels, etc.
         vertical_box((), || {
             content_box((), || {
-                image_box(ImageBoxProps::colored(Color {
-                    r: 0.0,
-                    g: 0.75,
-                    b: 0.0,
-                    a: 1.0,
-                }));
+                image_box(ImageBoxProps {
+                    material: ImageBoxMaterial::Color(ImageBoxColor {
+                        color: Color {
+                            r: 0.0,
+                            g: 0.75,
+                            b: 0.0,
+                            a: 1.0,
+                        },
+                        scaling: ImageBoxImageScaling::Frame(ImageBoxFrame {
+                            destination: 30.0.into(),
+                            frame_only: true,
+                            ..Default::default()
+                        }),
+                    }),
+                    ..Default::default()
+                });
 
                 text_box(TextBoxProps {
                     text: "Hello World!".to_owned(),
