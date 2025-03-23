@@ -1,6 +1,6 @@
 use crate::{
     context::DrawContext,
-    utils::{Drawable, ShaderRef, Vertex},
+    utils::{transform_to_matrix, Drawable, ShaderRef, Vertex},
 };
 use fontdue::layout::{
     CoordinateSystem, HorizontalAlign, Layout, LayoutSettings, TextStyle, VerticalAlign,
@@ -10,7 +10,7 @@ use spitfire_glow::{
     renderer::{GlowBlending, GlowTextureFiltering, GlowUniformValue},
 };
 use std::{borrow::Cow, collections::HashMap};
-use vek::{Mat4, Quaternion, Rgba, Transform, Vec2, Vec3};
+use vek::{Quaternion, Rgba, Transform, Vec2, Vec3};
 
 pub struct Text {
     pub shader: Option<ShaderRef>,
@@ -194,7 +194,7 @@ impl Drawable for Text {
                 blending: GlowBlending::Alpha,
                 scissor: Default::default(),
             });
-            let transform = context.top_transform() * Mat4::from(self.transform);
+            let transform = context.top_transform() * transform_to_matrix(self.transform);
             graphics.stream.transformed(
                 |stream| {
                     context.text_renderer.render_to_stream(stream);

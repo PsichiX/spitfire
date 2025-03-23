@@ -1,7 +1,7 @@
 use crate::{
     context::DrawContext,
     sprite::SpriteTexture,
-    utils::{Drawable, ShaderRef, Vertex},
+    utils::{transform_to_matrix, Drawable, ShaderRef, Vertex},
 };
 use smallvec::SmallVec;
 use spitfire_glow::{
@@ -14,7 +14,7 @@ use std::{
     collections::{HashMap, HashSet},
     ops::{Index, IndexMut},
 };
-use vek::{Mat4, Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
+use vek::{Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
 
 #[derive(Debug, Clone)]
 pub struct TileSetItem {
@@ -231,7 +231,7 @@ impl<I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'_, I> {
             scissor: None,
         };
         graphics.stream.batch_optimized(batch);
-        let transform = context.top_transform() * Mat4::from(self.emitter.transform);
+        let transform = context.top_transform() * transform_to_matrix(self.emitter.transform);
         graphics.stream.transformed(
             move |stream| {
                 let instances = match self.instances.borrow_mut().take() {

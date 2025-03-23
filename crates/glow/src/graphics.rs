@@ -440,7 +440,10 @@ impl Camera {
     }
 
     pub fn world_view_matrix(&self) -> Mat4<f32> {
-        Mat4::from(self.transform).inverted()
+        (Mat4::<f32>::scaling_3d(self.transform.scale)
+            * Mat4::<f32>::from(self.transform.orientation)
+            * Mat4::<f32>::translation_3d(self.transform.position))
+        .inverted()
     }
 
     pub fn world_matrix(&self) -> Mat4<f32> {

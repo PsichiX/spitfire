@@ -1,6 +1,6 @@
 use crate::{
     context::DrawContext,
-    utils::{Drawable, ShaderRef, TextureRef, Vertex},
+    utils::{transform_to_matrix, Drawable, ShaderRef, TextureRef, Vertex},
 };
 use smallvec::SmallVec;
 use spitfire_glow::{
@@ -8,7 +8,7 @@ use spitfire_glow::{
     renderer::{GlowBlending, GlowTextureFiltering, GlowUniformValue},
 };
 use std::{borrow::Cow, collections::HashMap};
-use vek::{Mat4, Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
+use vek::{Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
 
 #[derive(Debug, Clone)]
 pub struct SpriteTexture {
@@ -178,7 +178,7 @@ impl Drawable for Sprite {
             blending: self.blending.unwrap_or_else(|| context.top_blending()),
             scissor: None,
         };
-        let transform = context.top_transform() * Mat4::from(self.transform);
+        let transform = context.top_transform() * transform_to_matrix(self.transform);
         let size = self
             .size
             .or_else(|| {

@@ -1,7 +1,7 @@
 use crate::{
     context::DrawContext,
     sprite::SpriteTexture,
-    utils::{Drawable, ShaderRef, Vertex},
+    utils::{transform_to_matrix, Drawable, ShaderRef, Vertex},
 };
 use smallvec::SmallVec;
 use spitfire_core::Triangle;
@@ -10,7 +10,7 @@ use spitfire_glow::{
     renderer::{GlowBlending, GlowUniformValue},
 };
 use std::{borrow::Cow, collections::HashMap};
-use vek::{Mat4, Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
+use vek::{Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NineSliceMargins {
@@ -235,7 +235,7 @@ impl Drawable for NineSliceSprite {
             blending: self.blending.unwrap_or_else(|| context.top_blending()),
             scissor: None,
         };
-        let transform = context.top_transform() * Mat4::from(self.transform);
+        let transform = context.top_transform() * transform_to_matrix(self.transform);
         let size = self
             .size
             .or_else(|| {

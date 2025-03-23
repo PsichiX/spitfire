@@ -7,7 +7,7 @@ use spitfire_glow::{
     renderer::{GlowVertexAttrib, GlowVertexAttribs},
 };
 use std::borrow::Cow;
-use vek::Rgba;
+use vek::{Mat4, Rgba, Transform};
 
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
@@ -139,4 +139,10 @@ impl FontMap {
     pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &Font)> {
         self.keys.iter().zip(self.values.iter())
     }
+}
+
+pub fn transform_to_matrix(transform: Transform<f32, f32, f32>) -> Mat4<f32> {
+    Mat4::<f32>::scaling_3d(transform.scale)
+        * Mat4::<f32>::from(transform.orientation)
+        * Mat4::<f32>::translation_3d(transform.position)
 }

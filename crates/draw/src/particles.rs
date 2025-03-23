@@ -1,7 +1,7 @@
 use crate::{
     context::DrawContext,
     sprite::SpriteTexture,
-    utils::{Drawable, ShaderRef, Vertex},
+    utils::{transform_to_matrix, Drawable, ShaderRef, Vertex},
 };
 use smallvec::SmallVec;
 use spitfire_glow::{
@@ -9,7 +9,7 @@ use spitfire_glow::{
     renderer::{GlowBlending, GlowUniformValue},
 };
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, marker::PhantomData};
-use vek::{Mat4, Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
+use vek::{Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
 
 #[derive(Debug, Default, Clone)]
 pub struct ParticleEmitter {
@@ -188,7 +188,7 @@ impl<I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'_, I> 
         graphics.stream.batch_optimized(batch);
         let parent = context.top_transform();
         for instance in instances {
-            let transform = parent * Mat4::from(instance.transform);
+            let transform = parent * transform_to_matrix(instance.transform);
             let offset = instance.size * instance.pivot;
             let color = instance.tint.into_array();
             graphics.stream.transformed(
