@@ -186,7 +186,7 @@ impl<I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'_, I> 
             scissor: None,
         };
         graphics.stream.batch_optimized(batch);
-        let parent = Mat4::from(context.top_transform());
+        let parent = context.top_transform();
         for instance in instances {
             let transform = parent * Mat4::from(instance.transform);
             let offset = instance.size * instance.pivot;

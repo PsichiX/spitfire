@@ -194,7 +194,7 @@ impl Drawable for Text {
                 blending: GlowBlending::Alpha,
                 scissor: Default::default(),
             });
-            let transform = Mat4::from(context.top_transform()) * Mat4::from(self.transform);
+            let transform = context.top_transform() * Mat4::from(self.transform);
             graphics.stream.transformed(
                 |stream| {
                     context.text_renderer.render_to_stream(stream);

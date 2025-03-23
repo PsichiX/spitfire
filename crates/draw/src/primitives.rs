@@ -15,7 +15,7 @@ use std::{
     collections::HashMap,
     f32::consts::{PI, TAU},
 };
-use vek::{Mat4, Rect, Rgba, Vec2};
+use vek::{Rect, Rgba, Vec2};
 
 #[derive(Debug, Default, Clone)]
 pub struct PrimitivesEmitter {
@@ -206,7 +206,7 @@ impl PrimitivesEmitter {
             scissor: None,
         };
         graphics.stream.batch_optimized(batch);
-        let transform = Mat4::from(context.top_transform());
+        let transform = context.top_transform();
         graphics.stream.transformed(f, |vertex| {
             let point = transform.mul_point(Vec2::from(vertex.position));
             vertex.position[0] = point.x;

@@ -235,7 +235,7 @@ impl Drawable for NineSliceSprite {
             blending: self.blending.unwrap_or_else(|| context.top_blending()),
             scissor: None,
         };
-        let transform = Mat4::from(context.top_transform()) * Mat4::from(self.transform);
+        let transform = context.top_transform() * Mat4::from(self.transform);
         let size = self
             .size
             .or_else(|| {

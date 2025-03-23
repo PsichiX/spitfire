@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-fontdue"
-version = "0.29.6"
+version = "0.30.0"
 edition = "2021"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Fontdue renderer module for Spitfire toolset"
@@ -11,7 +11,7 @@ documentation = "https://docs.rs/spitfire-fontdue"
 readme = "../../README.md"
 
 [dependencies]
-spitfire-core = { version = "0.29", path = "../core" }
+spitfire-core = { version = "0.30", path = "../core" }
 bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.9"
 etagere = "0.2"

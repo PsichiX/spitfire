@@ -231,7 +231,7 @@ impl<I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'_, I> {
             scissor: None,
         };
         graphics.stream.batch_optimized(batch);
-        let transform = Mat4::from(context.top_transform()) * Mat4::from(self.emitter.transform);
+        let transform = context.top_transform() * Mat4::from(self.emitter.transform);
         graphics.stream.transformed(
             move |stream| {
                 let instances = match self.instances.borrow_mut().take() {

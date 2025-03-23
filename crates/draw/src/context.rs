@@ -5,7 +5,7 @@ use spitfire_glow::{
     renderer::{GlowBlending, GlowTextureFormat},
 };
 use std::{borrow::Cow, collections::HashMap};
-use vek::{Rgba, Transform};
+use vek::{Mat4, Rgba};
 
 #[derive(Default, Clone)]
 pub struct DrawContext {
@@ -17,7 +17,7 @@ pub struct DrawContext {
     empty_texture: Option<Texture>,
     fonts_texture: Option<Texture>,
     shaders_stack: Vec<Shader>,
-    transform_stack: Vec<Transform<f32, f32, f32>>,
+    transform_stack: Vec<Mat4<f32>>,
     blending_stack: Vec<GlowBlending>,
 }
 
@@ -118,23 +118,23 @@ impl DrawContext {
         result
     }
 
-    pub fn push_transform(&mut self, transform: Transform<f32, f32, f32>) {
+    pub fn push_transform(&mut self, transform: Mat4<f32>) {
         self.transform_stack.push(transform);
     }
 
-    pub fn pop_transform(&mut self) -> Option<Transform<f32, f32, f32>> {
+    pub fn push_transform_relative(&mut self, transform: Mat4<f32>) {
+        self.push_transform(self.top_transform() * transform);
+    }
+
+    pub fn pop_transform(&mut self) -> Option<Mat4<f32>> {
         self.transform_stack.pop()
     }
 
-    pub fn top_transform(&self) -> Transform<f32, f32, f32> {
+    pub fn top_transform(&self) -> Mat4<f32> {
         self.transform_stack.last().copied().unwrap_or_default()
     }
 
-    pub fn with_transform<R>(
-        &mut self,
-        transform: Transform<f32, f32, f32>,
-        mut f: impl FnMut() -> R,
-    ) -> R {
+    pub fn with_transform<R>(&mut self, transform: Mat4<f32>, mut f: impl FnMut() -> R) -> R {
         self.push_transform(transform);
         let result = f();
         self.pop_transform();
