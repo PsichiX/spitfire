@@ -142,7 +142,8 @@ impl FontMap {
 }
 
 pub fn transform_to_matrix(transform: Transform<f32, f32, f32>) -> Mat4<f32> {
-    Mat4::<f32>::scaling_3d(transform.scale)
-        * Mat4::<f32>::from(transform.orientation)
-        * Mat4::<f32>::translation_3d(transform.position)
+    let translation = Mat4::<f32>::translation_3d(transform.position);
+    let rotation = Mat4::<f32>::from(transform.orientation);
+    let scale = Mat4::<f32>::scaling_3d(transform.scale);
+    translation * rotation * scale
 }
