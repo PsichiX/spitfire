@@ -4,11 +4,11 @@ use crate::renderer::{
 };
 use bytemuck::{Pod, Zeroable};
 use glow::{
-    Context, Framebuffer as GlowFrameBuffer, HasContext, Program as GlowProgram,
-    Shader as GlowShader, Texture as GlowTexture, BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0,
-    COLOR_BUFFER_BIT, FRAGMENT_SHADER, FRAMEBUFFER, NEAREST, SCISSOR_TEST, TEXTURE_2D_ARRAY,
-    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T,
-    UNSIGNED_BYTE, VERTEX_SHADER,
+    BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, Context, FRAGMENT_SHADER,
+    FRAMEBUFFER, Framebuffer as GlowFrameBuffer, HasContext, NEAREST, Program as GlowProgram,
+    SCISSOR_TEST, Shader as GlowShader, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER,
+    TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T, Texture as GlowTexture, UNSIGNED_BYTE,
+    VERTEX_SHADER,
 };
 use spitfire_core::{VertexStream, VertexStreamRenderer};
 use std::{

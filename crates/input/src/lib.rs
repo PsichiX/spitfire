@@ -97,11 +97,7 @@ impl InputAction {
     }
 
     pub fn to_scalar(self, falsy: f32, truthy: f32) -> f32 {
-        if self.is_down() {
-            truthy
-        } else {
-            falsy
-        }
+        if self.is_down() { truthy } else { falsy }
     }
 }
 

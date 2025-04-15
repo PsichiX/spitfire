@@ -1,7 +1,7 @@
 [package]
 name = "spitfire"
-version = "0.30.2"
-edition = "2021"
+version = "0.31.0"
+edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Spitfire toolset"
 license = "MIT OR Apache-2.0"
@@ -18,12 +18,12 @@ input = ["spitfire-input"]
 gui = ["spitfire-gui"]
 
 [dependencies]
-spitfire-core = { version = "0.30", path = "../core" }
-spitfire-glow = { version = "0.30", path = "../glow", optional = true }
-spitfire-fontdue = { version = "0.30", path = "../fontdue", optional = true }
-spitfire-draw = { version = "0.30", path = "../draw", optional = true }
-spitfire-input = { version = "0.30", path = "../input", optional = true }
-spitfire-gui = { version = "0.30", path = "../gui", optional = true }
+spitfire-core = { version = "0.31", path = "../core" }
+spitfire-glow = { version = "0.31", path = "../glow", optional = true }
+spitfire-fontdue = { version = "0.31", path = "../fontdue", optional = true }
+spitfire-draw = { version = "0.31", path = "../draw", optional = true }
+spitfire-input = { version = "0.31", path = "../input", optional = true }
+spitfire-gui = { version = "0.31", path = "../gui", optional = true }
 
 [dev-dependencies]
 spitfire-core = { path = "../core" }
@@ -37,7 +37,7 @@ bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.9"
 vek = "0.17"
 glutin = "0.28"
-raui-core = "0.65"
-raui-immediate = "0.65"
-raui-immediate-widgets = "0.65"
+raui-core = "0.66"
+raui-immediate = "0.66"
+raui-immediate-widgets = "0.66"
 rand = "0.8"

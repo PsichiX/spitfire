@@ -1,9 +1,9 @@
-use bytemuck::{checked::cast_slice, Pod};
+use bytemuck::{Pod, checked::cast_slice};
 use glow::{
-    Buffer, Context, HasContext, Program, Texture, VertexArray, ARRAY_BUFFER, BLEND, DST_COLOR,
-    ELEMENT_ARRAY_BUFFER, FLOAT, INT, LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, RGB, RGBA,
-    RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE0, TEXTURE_2D_ARRAY,
-    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TRIANGLES, UNSIGNED_INT, ZERO,
+    ARRAY_BUFFER, BLEND, Buffer, Context, DST_COLOR, ELEMENT_ARRAY_BUFFER, FLOAT, HasContext, INT,
+    LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, Program, RGB, RGBA, RGBA16F, RGBA32F, SCISSOR_TEST,
+    SRC_ALPHA, STREAM_DRAW, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE0,
+    TRIANGLES, Texture, UNSIGNED_INT, VertexArray, ZERO,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, ops::Range};

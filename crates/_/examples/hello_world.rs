@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use fontdue::{
-    layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle},
     Font,
+    layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle},
 };
 use spitfire_fontdue::*;
 use spitfire_glow::prelude::*;

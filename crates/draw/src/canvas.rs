@@ -21,9 +21,9 @@ impl Canvas {
         graphics: &Graphics<Vertex>,
     ) -> Result<Self, String> {
         Ok(Self {
-            surface: graphics.surface(vec![graphics
-                .texture(width, height, 1, format, None)?
-                .into()])?,
+            surface: graphics.surface(vec![
+                graphics.texture(width, height, 1, format, None)?.into(),
+            ])?,
         })
     }
 

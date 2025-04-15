@@ -1,6 +1,6 @@
 use crate::{
     context::DrawContext,
-    utils::{transform_to_matrix, Drawable, ShaderRef, TextureRef, Vertex},
+    utils::{Drawable, ShaderRef, TextureRef, Vertex, transform_to_matrix},
 };
 use smallvec::SmallVec;
 use spitfire_glow::{

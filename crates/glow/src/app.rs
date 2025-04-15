@@ -2,15 +2,15 @@ use crate::{graphics::Graphics, renderer::GlowVertexAttribs};
 use glow::{Context, HasContext};
 #[cfg(not(target_arch = "wasm32"))]
 use glutin::{
+    ContextBuilder, ContextWrapper, PossiblyCurrent,
     dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     platform::run_return::EventLoopExtRunReturn,
     window::{Fullscreen, Window, WindowBuilder},
-    ContextBuilder, ContextWrapper, PossiblyCurrent,
 };
 #[cfg(target_arch = "wasm32")]
-use web_sys::{wasm_bindgen::JsCast, HtmlCanvasElement, WebGl2RenderingContext};
+use web_sys::{HtmlCanvasElement, WebGl2RenderingContext, wasm_bindgen::JsCast};
 #[cfg(target_arch = "wasm32")]
 use winit::{
     dpi::LogicalSize,

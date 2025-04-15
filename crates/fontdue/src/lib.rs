@@ -1,12 +1,12 @@
 use bytemuck::Pod;
-use etagere::{euclid::default::Rect, size2, AtlasAllocator};
+use etagere::{AtlasAllocator, euclid::default::Rect, size2};
 use fontdue::{
-    layout::{GlyphPosition, GlyphRasterConfig, Layout},
     Font,
+    layout::{GlyphPosition, GlyphRasterConfig, Layout},
 };
 use spitfire_core::VertexStream;
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     marker::PhantomData,
 };
 
@@ -237,8 +237,8 @@ impl<UD: Copy> TextRenderer<UD> {
 mod tests {
     use crate::TextRenderer;
     use fontdue::{
-        layout::{CoordinateSystem, Layout, TextStyle},
         Font,
+        layout::{CoordinateSystem, Layout, TextStyle},
     };
     use image::RgbImage;
 

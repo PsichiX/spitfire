@@ -1,7 +1,7 @@
 [package]
 name = "spitfire-glow"
-version = "0.30.2"
-edition = "2021"
+version = "0.31.0"
+edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "GLOW renderer module for Spitfire toolset"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ readme = "../../README.md"
 debug_automatic_glGetError = ["glow/debug_automatic_glGetError"]
 
 [dependencies]
-spitfire-core = { version = "0.30", path = "../core" }
+spitfire-core = { version = "0.31", path = "../core" }
 bytemuck = { version = "1", features = ["derive"] }
 glow = "0.14"
 vek = "0.17"
