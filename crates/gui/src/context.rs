@@ -72,9 +72,8 @@ impl GuiContext {
             self.coords_map_scaling,
         );
         if self.application.process() {
-            let _ = self
-                .application
-                .layout(&coords_mapping, &mut DefaultLayoutEngine);
+            let mut layout_engine = DefaultLayoutEngine::<()>::default();
+            let _ = self.application.layout(&coords_mapping, &mut layout_engine);
         }
         self.interactions.maintain(&coords_mapping);
         let _ = self.application.interact(&mut self.interactions);
