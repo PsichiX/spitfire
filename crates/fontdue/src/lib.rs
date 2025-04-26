@@ -65,6 +65,26 @@ impl<UD: Copy> TextRenderer<UD> {
         self.ready_to_render.clear();
     }
 
+    pub fn measure(fonts: &[Font], layout: &Layout<UD>) -> [f32; 4] {
+        let mut result = [
+            f32::INFINITY,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::NEG_INFINITY,
+        ];
+        for glyph in layout.glyphs() {
+            if glyph.char_data.rasterize() {
+                let font = &fonts[glyph.font_index];
+                let metrics = font.metrics_indexed(glyph.key.glyph_index, glyph.key.px);
+                result[0] = result[0].min(glyph.x);
+                result[1] = result[1].min(glyph.y);
+                result[2] = result[2].max(glyph.x + metrics.width as f32);
+                result[3] = result[3].max(glyph.y + metrics.height as f32);
+            }
+        }
+        result
+    }
+
     pub fn include(&mut self, fonts: &[Font], layout: &Layout<UD>) {
         for glyph in layout.glyphs() {
             if glyph.char_data.rasterize() {
@@ -267,5 +287,17 @@ mod tests {
         )
         .unwrap();
         image.save("../../resources/test.png").unwrap();
+    }
+
+    #[test]
+    fn test_text_measurements() {
+        let font = include_bytes!("../../../resources/Roboto-Regular.ttf") as &[_];
+        let font = Font::from_bytes(font, Default::default()).unwrap();
+        let fonts = [font];
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.append(&fonts, &TextStyle::new("Hello\n!World!", 32.0, 0));
+
+        let aabb = TextRenderer::measure(&fonts, &layout);
+        assert_eq!(aabb, [2.0, 6.0, 101.0, 69.0]);
     }
 }
