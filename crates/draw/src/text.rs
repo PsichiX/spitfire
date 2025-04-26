@@ -5,12 +5,13 @@ use crate::{
 use fontdue::layout::{
     CoordinateSystem, HorizontalAlign, Layout, LayoutSettings, TextStyle, VerticalAlign,
 };
+use spitfire_fontdue::TextRenderer;
 use spitfire_glow::{
     graphics::{Graphics, GraphicsBatch},
     renderer::{GlowBlending, GlowTextureFiltering, GlowUniformValue},
 };
 use std::{borrow::Cow, collections::HashMap};
-use vek::{Quaternion, Rgba, Transform, Vec2, Vec3};
+use vek::{Quaternion, Rect, Rgba, Transform, Vec2, Vec3};
 
 pub struct Text {
     pub shader: Option<ShaderRef>,
@@ -140,10 +141,23 @@ impl Text {
         self.screen_space = value;
         self
     }
-}
 
-impl Drawable for Text {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    pub fn get_local_space_bounding_box(&self, context: &DrawContext) -> Option<Rect<f32, f32>> {
+        let layout = self.make_text_layout(context)?;
+        let aabb = TextRenderer::measure(context.fonts.values(), &layout);
+        if aabb.iter().all(|v| v.is_finite()) {
+            Some(Rect::new(
+                aabb[0],
+                aabb[1],
+                aabb[2] - aabb[0],
+                aabb[3] - aabb[1],
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn make_text_layout(&self, context: &DrawContext) -> Option<Layout<Rgba<f32>>> {
         if let Some(index) = context.fonts.index_of(&self.font) {
             let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
             layout.reset(&LayoutSettings {
@@ -164,6 +178,16 @@ impl Drawable for Text {
                     user_data: self.tint,
                 },
             );
+            Some(layout)
+        } else {
+            None
+        }
+    }
+}
+
+impl Drawable for Text {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+        if let Some(layout) = self.make_text_layout(context) {
             context
                 .text_renderer
                 .include(context.fonts.values(), &layout);
