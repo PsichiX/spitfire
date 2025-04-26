@@ -65,7 +65,7 @@ impl<UD: Copy> TextRenderer<UD> {
         self.ready_to_render.clear();
     }
 
-    pub fn measure(_fonts: &[Font], layout: &Layout<UD>) -> [f32; 4] {
+    pub fn measure(fonts: &[Font], layout: &Layout<UD>) -> [f32; 4] {
         let mut result = [
             f32::INFINITY,
             f32::INFINITY,
@@ -74,12 +74,13 @@ impl<UD: Copy> TextRenderer<UD> {
         ];
         for glyph in layout.glyphs() {
             if glyph.char_data.rasterize() {
-                // let font = &fonts[glyph.font_index];
-                // let metrics = font.metrics_indexed(glyph.key.glyph_index, glyph.key.px);
+                let font = &fonts[glyph.font_index];
+                let metrics = font.metrics_indexed(glyph.key.glyph_index, glyph.key.px);
                 result[0] = result[0].min(glyph.x);
                 result[1] = result[1].min(glyph.y);
-                result[2] = result[2].max(glyph.x + glyph.width as f32);
-                result[3] = result[3].max(glyph.y + glyph.height as f32);
+                result[2] = result[2].max(glyph.x + metrics.advance_width.max(glyph.width as f32));
+                result[3] =
+                    result[3].max(glyph.y + metrics.advance_height.max(glyph.height as f32));
             }
         }
         result
@@ -298,6 +299,6 @@ mod tests {
         layout.append(&fonts, &TextStyle::new("Hello\n!World!", 32.0, 0));
 
         let aabb = TextRenderer::measure(&fonts, &layout);
-        assert_eq!(aabb, [2.0, 6.0, 101.0, 69.0]);
+        assert_eq!(aabb, [2.0, 6.0, 105.234375, 69.0]);
     }
 }
