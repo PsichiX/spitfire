@@ -13,6 +13,7 @@ pub struct DrawContext {
     pub textures: HashMap<Cow<'static, str>, Texture>,
     pub fonts: FontMap,
     pub text_renderer: TextRenderer<Rgba<f32>>,
+    pub wireframe: bool,
     pass_shader: Option<Shader>,
     empty_texture: Option<Texture>,
     fonts_texture: Option<Texture>,

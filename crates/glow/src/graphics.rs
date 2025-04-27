@@ -4,11 +4,11 @@ use crate::renderer::{
 };
 use bytemuck::{Pod, Zeroable};
 use glow::{
-    BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, Context, FRAGMENT_SHADER,
-    FRAMEBUFFER, Framebuffer as GlowFrameBuffer, HasContext, NEAREST, Program as GlowProgram,
-    SCISSOR_TEST, Shader as GlowShader, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER,
-    TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T, Texture as GlowTexture, UNSIGNED_BYTE,
-    VERTEX_SHADER,
+    BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, Context, FILL, FRAGMENT_SHADER,
+    FRAMEBUFFER, FRONT_AND_BACK, Framebuffer as GlowFrameBuffer, HasContext, NEAREST,
+    Program as GlowProgram, SCISSOR_TEST, Shader as GlowShader, TEXTURE_2D_ARRAY,
+    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T,
+    Texture as GlowTexture, UNSIGNED_BYTE, VERTEX_SHADER,
 };
 use spitfire_core::{VertexStream, VertexStreamRenderer};
 use std::{
@@ -289,6 +289,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                     context.clear_color(r, g, b, a);
                     context.clear(COLOR_BUFFER_BIT);
                 }
+                context.polygon_mode(FRONT_AND_BACK, FILL);
                 Ok(())
             } else {
                 Err("Invalid context".to_owned())
@@ -483,6 +484,7 @@ pub struct GraphicsBatch {
     /// (source, destination)?
     pub blending: GlowBlending,
     pub scissor: Option<Rect<i32, i32>>,
+    pub wireframe: bool,
 }
 
 #[allow(clippy::from_over_into)]
@@ -514,6 +516,7 @@ impl Into<GlowBatch> for GraphicsBatch {
                 .collect(),
             blending: self.blending.into_gl(),
             scissor: self.scissor.map(|v| [v.x, v.y, v.w, v.h]),
+            wireframe: self.wireframe,
         }
     }
 }

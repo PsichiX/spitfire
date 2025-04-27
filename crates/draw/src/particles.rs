@@ -184,6 +184,7 @@ impl<I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'_, I> 
                 .blending
                 .unwrap_or_else(|| context.top_blending()),
             scissor: None,
+            wireframe: context.wireframe,
         };
         graphics.stream.batch_optimized(batch);
         let parent = context.top_transform();

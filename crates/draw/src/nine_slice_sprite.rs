@@ -234,6 +234,7 @@ impl Drawable for NineSliceSprite {
                 .collect(),
             blending: self.blending.unwrap_or_else(|| context.top_blending()),
             scissor: None,
+            wireframe: context.wireframe,
         };
         let transform = context.top_transform() * transform_to_matrix(self.transform);
         let size = self

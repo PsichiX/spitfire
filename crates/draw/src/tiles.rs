@@ -229,6 +229,7 @@ impl<I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'_, I> {
                 .blending
                 .unwrap_or_else(|| context.top_blending()),
             scissor: None,
+            wireframe: context.wireframe,
         };
         graphics.stream.batch_optimized(batch);
         let transform = context.top_transform() * transform_to_matrix(self.emitter.transform);

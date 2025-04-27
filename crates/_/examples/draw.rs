@@ -202,10 +202,15 @@ impl AppState<Vertex> for State {
         // Drawing particles is done with emitter that defines how
         // to render them, and expects iterator of particle instances
         // provided by some source of data, here we use particle system.
+        // Additionally, we will render them as wireframe, so we can see
+        // their triangles instead of what they are. Wireframe rendering
+        // mode is useful for debug visuals for example.
+        self.context.wireframe = true;
         ParticleEmitter::default()
             .shader(ShaderRef::name("color"))
             .emit(self.particles.emit())
             .draw(&mut self.context, graphics);
+        self.context.wireframe = false;
 
         self.context.end_frame();
     }

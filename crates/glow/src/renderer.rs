@@ -1,9 +1,10 @@
 use bytemuck::{Pod, checked::cast_slice};
 use glow::{
-    ARRAY_BUFFER, BLEND, Buffer, Context, DST_COLOR, ELEMENT_ARRAY_BUFFER, FLOAT, HasContext, INT,
-    LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, Program, RGB, RGBA, RGBA16F, RGBA32F, SCISSOR_TEST,
-    SRC_ALPHA, STREAM_DRAW, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE0,
-    TRIANGLES, Texture, UNSIGNED_INT, VertexArray, ZERO,
+    ARRAY_BUFFER, BLEND, Buffer, Context, DST_COLOR, ELEMENT_ARRAY_BUFFER, FILL, FLOAT,
+    FRONT_AND_BACK, HasContext, INT, LINE, LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, Program, RGB,
+    RGBA, RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE_2D_ARRAY,
+    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE0, TRIANGLES, Texture, UNSIGNED_INT,
+    VertexArray, ZERO,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, ops::Range};
@@ -113,6 +114,7 @@ pub struct GlowBatch {
     pub blending: Option<(u32, u32)>,
     /// [x, y, width, height]?
     pub scissor: Option<[i32; 4]>,
+    pub wireframe: bool,
 }
 
 impl GlowBatch {
@@ -209,6 +211,13 @@ impl GlowBatch {
                     context.scissor(x, y, w, h);
                 } else {
                     context.disable(SCISSOR_TEST);
+                }
+            }
+            if self.wireframe != prev.wireframe {
+                if self.wireframe {
+                    context.polygon_mode(FRONT_AND_BACK, LINE);
+                } else {
+                    context.polygon_mode(FRONT_AND_BACK, FILL);
                 }
             }
             context.draw_elements(
