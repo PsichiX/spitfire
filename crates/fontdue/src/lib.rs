@@ -65,25 +65,41 @@ impl<UD: Copy> TextRenderer<UD> {
         self.ready_to_render.clear();
     }
 
-    pub fn measure(fonts: &[Font], layout: &Layout<UD>) -> [f32; 4] {
-        let mut result = [
-            f32::INFINITY,
-            f32::INFINITY,
-            f32::NEG_INFINITY,
-            f32::NEG_INFINITY,
-        ];
-        for glyph in layout.glyphs() {
-            if glyph.char_data.rasterize() {
-                let font = &fonts[glyph.font_index];
-                let metrics = font.metrics_indexed(glyph.key.glyph_index, glyph.key.px);
-                result[0] = result[0].min(glyph.x);
-                result[1] = result[1].min(glyph.y);
-                result[2] = result[2].max(glyph.x + metrics.advance_width.max(glyph.width as f32));
-                result[3] =
-                    result[3].max(glyph.y + metrics.advance_height.max(glyph.height as f32));
+    pub fn measure(layout: &Layout<UD>, fonts: &[Font], compact: bool) -> [f32; 4] {
+        let mut xmin = f32::INFINITY;
+        let mut ymin = f32::INFINITY;
+        let mut xmax = f32::NEG_INFINITY;
+        let mut ymax = f32::NEG_INFINITY;
+        if compact {
+            for glyph in layout.glyphs() {
+                if glyph.char_data.rasterize() {
+                    xmin = xmin.min(glyph.x);
+                    ymin = ymin.min(glyph.y);
+                    xmax = xmax.max(glyph.x + glyph.width as f32);
+                    ymax = ymax.max(glyph.y + glyph.height as f32);
+                }
             }
+        } else if let Some(lines) = layout.lines() {
+            for line in lines {
+                ymin = ymin.min(line.baseline_y - line.max_ascent);
+                ymax = ymax.max(line.baseline_y - line.max_ascent + line.max_new_line_size);
+                let glyph = &layout.glyphs()[line.glyph_start];
+                if glyph.char_data.rasterize() {
+                    xmin = xmin.min(glyph.x);
+                }
+                let glyph = &layout.glyphs()[line.glyph_end];
+                if glyph.char_data.rasterize() {
+                    let font = &fonts[glyph.font_index];
+                    let metrics = font.metrics_indexed(glyph.key.glyph_index, glyph.key.px);
+                    xmax = xmax.max(glyph.x + metrics.advance_width.ceil());
+                }
+            }
+            xmin = layout.settings().x.min(xmin);
+            ymin = layout.settings().y.min(ymin);
+            xmax += 1.0;
+            ymax += 1.0;
         }
-        result
+        [xmin, ymin, xmax, ymax]
     }
 
     pub fn include(&mut self, fonts: &[Font], layout: &Layout<UD>) {
@@ -259,7 +275,7 @@ mod tests {
     use crate::TextRenderer;
     use fontdue::{
         Font,
-        layout::{CoordinateSystem, Layout, TextStyle},
+        layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle},
     };
     use image::RgbImage;
 
@@ -295,10 +311,35 @@ mod tests {
         let font = include_bytes!("../../../resources/Roboto-Regular.ttf") as &[_];
         let font = Font::from_bytes(font, Default::default()).unwrap();
         let fonts = [font];
+        let style = TextStyle::new("Hey,\nGotham!", 32.0, 0);
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
-        layout.append(&fonts, &TextStyle::new("Hello\n!World!", 32.0, 0));
+        layout.append(&fonts, &style);
 
-        let aabb = TextRenderer::measure(&fonts, &layout);
-        assert_eq!(aabb, [2.0, 6.0, 105.234375, 69.0]);
+        let aabb_non_compact = TextRenderer::measure(&layout, &fonts, false);
+        assert_eq!(aabb_non_compact, [0.0, 0.0, 129.0, 77.0]);
+        let aabb_compact = TextRenderer::measure(&layout, &fonts, true);
+        assert_eq!(aabb_compact, [1.0, 7.0, 123.0, 69.0]);
+
+        layout.reset(&LayoutSettings {
+            max_width: Some(aabb_non_compact[2] - aabb_non_compact[0]),
+            max_height: Some(aabb_non_compact[3] - aabb_non_compact[1]),
+            ..Default::default()
+        });
+        layout.append(&fonts, &style);
+        let aabb = TextRenderer::measure(&layout, &fonts, false);
+        assert_eq!(aabb, aabb_non_compact);
+        let aabb = TextRenderer::measure(&layout, &fonts, true);
+        assert_eq!(aabb, aabb_compact);
+
+        layout.reset(&LayoutSettings {
+            max_width: Some(aabb_compact[2] - aabb_compact[0]),
+            max_height: Some(aabb_compact[3] - aabb_compact[1]),
+            ..Default::default()
+        });
+        layout.append(&fonts, &style);
+        let aabb = TextRenderer::measure(&layout, &fonts, false);
+        assert_ne!(aabb, aabb_non_compact);
+        let aabb = TextRenderer::measure(&layout, &fonts, true);
+        assert_ne!(aabb, aabb_compact);
     }
 }

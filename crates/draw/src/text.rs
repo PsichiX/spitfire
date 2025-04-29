@@ -142,9 +142,13 @@ impl Text {
         self
     }
 
-    pub fn get_local_space_bounding_box(&self, context: &DrawContext) -> Option<Rect<f32, f32>> {
+    pub fn get_local_space_bounding_box(
+        &self,
+        context: &DrawContext,
+        compact: bool,
+    ) -> Option<Rect<f32, f32>> {
         let layout = self.make_text_layout(context)?;
-        let aabb = TextRenderer::measure(context.fonts.values(), &layout);
+        let aabb = TextRenderer::measure(&layout, context.fonts.values(), compact);
         if aabb.iter().all(|v| v.is_finite()) {
             Some(Rect::new(
                 aabb[0],

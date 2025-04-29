@@ -191,13 +191,29 @@ impl AppState<Vertex> for State {
         // Drawing texts is done in similar way to drawing sprites.
         // In matter of fact, you can create custom renderables
         // by implementing `Drawable` trait on a type!
-        Text::new(ShaderRef::name("text"))
+        let text = Text::new(ShaderRef::name("text"))
             .font("roboto")
             .size(100.0)
             .text("Welcome to Spitfire!")
             .tint([0.0, 0.8, 1.0, 1.0].into())
-            .position([-450.0, 170.0].into())
-            .draw(&mut self.context, graphics);
+            .position([-450.0, 170.0].into());
+        text.draw(&mut self.context, graphics);
+        // We can use text bounding box to draw a rectangle around it.
+        if let Some(aabb) = text.get_local_space_bounding_box(&self.context, false) {
+            self.context.push_transform_relative(text.transform.into());
+            PrimitivesEmitter::default()
+                .shader(ShaderRef::name("color"))
+                .emit_lines([
+                    Vec2::new(aabb.x, aabb.y),
+                    Vec2::new(aabb.x + aabb.w, aabb.y),
+                    Vec2::new(aabb.x + aabb.w, aabb.y + aabb.h),
+                    Vec2::new(aabb.x, aabb.y + aabb.h),
+                ])
+                .looped(true)
+                .tint(text.tint)
+                .draw(&mut self.context, graphics);
+            self.context.pop_transform();
+        }
 
         // Drawing particles is done with emitter that defines how
         // to render them, and expects iterator of particle instances
