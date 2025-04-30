@@ -193,8 +193,8 @@ impl AppState<Vertex> for State {
         // by implementing `Drawable` trait on a type!
         let text = Text::new(ShaderRef::name("text"))
             .font("roboto")
-            .size(100.0)
-            .text("Welcome to Spitfire!")
+            .size(64.0)
+            .text(include_str!("../../../resources/long_text.txt"))
             .tint([0.0, 0.8, 1.0, 1.0].into())
             .position([-450.0, 170.0].into());
         text.draw(&mut self.context, graphics);

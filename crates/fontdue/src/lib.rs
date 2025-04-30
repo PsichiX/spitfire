@@ -82,22 +82,18 @@ impl<UD: Copy> TextRenderer<UD> {
         } else if let Some(lines) = layout.lines() {
             for line in lines {
                 ymin = ymin.min(line.baseline_y - line.max_ascent);
-                ymax = ymax.max(line.baseline_y - line.max_ascent + line.max_new_line_size);
-                let glyph = &layout.glyphs()[line.glyph_start];
-                if glyph.char_data.rasterize() {
-                    xmin = xmin.min(glyph.x);
-                }
-                let glyph = &layout.glyphs()[line.glyph_end];
+                ymax = ymax.max(line.baseline_y - line.max_ascent + line.max_new_line_size + 1.0);
+            }
+            for glyph in layout.glyphs() {
                 if glyph.char_data.rasterize() {
                     let font = &fonts[glyph.font_index];
                     let metrics = font.metrics_indexed(glyph.key.glyph_index, glyph.key.px);
-                    xmax = xmax.max(glyph.x + metrics.advance_width.ceil());
+                    xmin = xmin.min(glyph.x);
+                    xmax = xmax.max(glyph.x + metrics.advance_width.ceil() + 1.0);
                 }
             }
             xmin = layout.settings().x.min(xmin);
             ymin = layout.settings().y.min(ymin);
-            xmax += 1.0;
-            ymax += 1.0;
         }
         [xmin, ymin, xmax, ymax]
     }
@@ -311,14 +307,14 @@ mod tests {
         let font = include_bytes!("../../../resources/Roboto-Regular.ttf") as &[_];
         let font = Font::from_bytes(font, Default::default()).unwrap();
         let fonts = [font];
-        let style = TextStyle::new("Hey,\nGotham!", 32.0, 0);
+        let style = TextStyle::new(include_str!("../../../resources/long_text.txt"), 32.0, 0);
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.append(&fonts, &style);
 
         let aabb_non_compact = TextRenderer::measure(&layout, &fonts, false);
-        assert_eq!(aabb_non_compact, [0.0, 0.0, 129.0, 77.0]);
+        assert_eq!(aabb_non_compact, [0.0, 0.0, 450.0, 115.0]);
         let aabb_compact = TextRenderer::measure(&layout, &fonts, true);
-        assert_eq!(aabb_compact, [1.0, 7.0, 123.0, 69.0]);
+        assert_eq!(aabb_compact, [0.0, 6.0, 448.0, 113.0]);
 
         layout.reset(&LayoutSettings {
             max_width: Some(aabb_non_compact[2] - aabb_non_compact[0]),
