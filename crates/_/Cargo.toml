@@ -1,6 +1,6 @@
 [package]
 name = "spitfire"
-version = "0.32.1"
+version = "0.32.2"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Spitfire toolset"
@@ -37,7 +37,7 @@ bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.9"
 vek = "0.17"
 glutin = "0.28"
-raui-core = "0.67"
-raui-immediate = "0.67"
-raui-immediate-widgets = "0.67"
+raui-core = "0.68"
+raui-immediate = "0.68"
+raui-immediate-widgets = "0.68"
 rand = "0.8"
