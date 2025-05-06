@@ -1,6 +1,19 @@
 use fontdue::Font;
-use raui_core::layout::CoordsMappingScaling;
-use raui_immediate_widgets::prelude::*;
+use raui_core::{
+    layout::CoordsMappingScaling,
+    widget::{
+        component::{image_box::ImageBoxProps, text_box::TextBoxProps},
+        unit::{
+            image::{ImageBoxColor, ImageBoxFrame, ImageBoxImageScaling, ImageBoxMaterial},
+            text::{TextBoxFont, TextBoxHorizontalAlign, TextBoxVerticalAlign},
+        },
+        utils::Color,
+    },
+};
+use raui_immediate_widgets::core::{
+    containers::{content_box, vertical_box},
+    image_box, text_box,
+};
 use spitfire_draw::prelude::*;
 use spitfire_glow::prelude::*;
 use spitfire_gui::prelude::*;

@@ -1,5 +1,16 @@
 use fontdue::layout::{HorizontalAlign, VerticalAlign};
-use raui_core::prelude::*;
+use raui_core::{
+    layout::{CoordsMapping, Layout as RauiLayout},
+    renderer::Renderer,
+    widget::{
+        unit::{
+            WidgetUnit, WidgetUnitData,
+            image::{ImageBoxImageScaling, ImageBoxMaterial},
+            text::{TextBoxHorizontalAlign, TextBoxVerticalAlign},
+        },
+        utils::{Rect, lerp},
+    },
+};
 use spitfire_draw::prelude::*;
 use spitfire_glow::prelude::*;
 use vek::{Rgba, Vec2};
@@ -14,7 +25,7 @@ pub struct GuiRenderer<'a> {
 }
 
 impl GuiRenderer<'_> {
-    fn draw_node(&mut self, node: &WidgetUnit, mapping: &CoordsMapping, layout: &Layout) {
+    fn draw_node(&mut self, node: &WidgetUnit, mapping: &CoordsMapping, layout: &RauiLayout) {
         match node {
             WidgetUnit::None | WidgetUnit::PortalBox(_) => {}
             WidgetUnit::AreaBox(node) => {
@@ -264,7 +275,7 @@ impl Renderer<(), ()> for GuiRenderer<'_> {
         &mut self,
         tree: &WidgetUnit,
         mapping: &CoordsMapping,
-        layout: &Layout,
+        layout: &RauiLayout,
     ) -> Result<(), ()> {
         self.draw_node(tree, mapping, layout);
         Ok(())
