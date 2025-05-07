@@ -6,6 +6,7 @@ format:
 
 build:
     cargo build --all --all-features
+    cargo build --examples
 
 build-wasm:
     cargo build --all --all-features --target wasm32-unknown-unknown

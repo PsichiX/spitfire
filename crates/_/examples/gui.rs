@@ -1,8 +1,15 @@
 use fontdue::Font;
+use glutin::{
+    event::{Event, MouseButton},
+    window::Window,
+};
 use raui_core::{
     layout::CoordsMappingScaling,
     widget::{
-        component::{image_box::ImageBoxProps, text_box::TextBoxProps},
+        component::{
+            image_box::ImageBoxProps, interactive::navigation::NavItemActive,
+            text_box::TextBoxProps,
+        },
         unit::{
             image::{ImageBoxColor, ImageBoxFrame, ImageBoxImageScaling, ImageBoxMaterial},
             text::{TextBoxFont, TextBoxHorizontalAlign, TextBoxVerticalAlign},
@@ -11,12 +18,15 @@ use raui_core::{
     },
 };
 use raui_immediate_widgets::core::{
-    containers::{content_box, vertical_box},
-    image_box, text_box,
+    containers::{content_box, nav_horizontal_box, vertical_box},
+    image_box,
+    interactive::button,
+    text_box,
 };
 use spitfire_draw::prelude::*;
 use spitfire_glow::prelude::*;
 use spitfire_gui::prelude::*;
+use spitfire_input::*;
 use std::{fs::File, path::Path};
 
 fn main() {
@@ -29,13 +39,39 @@ struct State {
     // We store GUI context that stores RAUI application with its engines,
     // as well as immediate mode context and rendering configuration.
     gui: GuiContext,
+    input: InputContext,
 }
 
 impl AppState<Vertex> for State {
-    fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
         self.gui.coords_map_scaling = CoordsMappingScaling::FitToView(512.0.into(), false);
+        self.gui.interactions.engine.deselect_when_no_button_found = true;
+        self.gui.texture_filtering = GlowTextureFiltering::Linear;
+
+        // Define input actions and axes that will be used by GUI.
+        let pointer_x = InputAxisRef::default();
+        let pointer_y = InputAxisRef::default();
+        let pointer_trigger = InputActionRef::default();
+
+        let inputs = GuiInteractionsInputs {
+            pointer_position: ArrayInputCombinator::new([pointer_x.clone(), pointer_y.clone()]),
+            pointer_trigger: pointer_trigger.clone(),
+            ..Default::default()
+        };
+        self.gui.interactions.inputs = inputs;
+
+        self.input.push_mapping(
+            InputMapping::default()
+                .consume(InputConsume::Hit)
+                .axis(VirtualAxis::MousePositionX, pointer_x)
+                .axis(VirtualAxis::MousePositionY, pointer_y)
+                .action(
+                    VirtualAction::MouseButton(MouseButton::Left),
+                    pointer_trigger,
+                ),
+        );
 
         self.draw.shaders.insert(
             "color".into(),
@@ -73,7 +109,7 @@ impl AppState<Vertex> for State {
         );
     }
 
-    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>, control: &mut AppControl) {
         self.draw.begin_frame(graphics);
         self.draw.push_shader(&ShaderRef::name("image"));
         self.draw.push_blending(GlowBlending::Alpha);
@@ -108,21 +144,76 @@ impl AppState<Vertex> for State {
                     ..Default::default()
                 });
 
-                text_box(TextBoxProps {
-                    text: "Hello World!".to_owned(),
-                    horizontal_align: TextBoxHorizontalAlign::Center,
-                    vertical_align: TextBoxVerticalAlign::Middle,
-                    font: TextBoxFont {
-                        name: "roboto".to_owned(),
-                        size: 64.0,
-                    },
-                    color: Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.75,
-                        a: 1.0,
-                    },
-                    ..Default::default()
+                nav_horizontal_box((), || {
+                    let response = button(NavItemActive, |_| {
+                        text_box(TextBoxProps {
+                            text: "Minimize".to_owned(),
+                            horizontal_align: TextBoxHorizontalAlign::Center,
+                            vertical_align: TextBoxVerticalAlign::Middle,
+                            font: TextBoxFont {
+                                name: "roboto".to_owned(),
+                                size: 32.0,
+                            },
+                            color: Color {
+                                r: 0.0,
+                                g: 0.0,
+                                b: 0.75,
+                                a: 1.0,
+                            },
+                            ..Default::default()
+                        });
+                    });
+                    if response.trigger_start() {
+                        control.set_minimized(true);
+                    }
+
+                    let response = button(NavItemActive, |_| {
+                        text_box(TextBoxProps {
+                            text: if control.maximized() {
+                                "Restore".to_owned()
+                            } else {
+                                "Maximize".to_owned()
+                            },
+                            horizontal_align: TextBoxHorizontalAlign::Center,
+                            vertical_align: TextBoxVerticalAlign::Middle,
+                            font: TextBoxFont {
+                                name: "roboto".to_owned(),
+                                size: 32.0,
+                            },
+                            color: Color {
+                                r: 0.0,
+                                g: 0.75,
+                                b: 0.0,
+                                a: 1.0,
+                            },
+                            ..Default::default()
+                        });
+                    });
+                    if response.trigger_start() {
+                        control.set_maximized(!control.maximized());
+                    }
+
+                    let response = button(NavItemActive, |_| {
+                        text_box(TextBoxProps {
+                            text: "Close".to_owned(),
+                            horizontal_align: TextBoxHorizontalAlign::Center,
+                            vertical_align: TextBoxVerticalAlign::Middle,
+                            font: TextBoxFont {
+                                name: "roboto".to_owned(),
+                                size: 32.0,
+                            },
+                            color: Color {
+                                r: 0.75,
+                                g: 0.0,
+                                b: 0.0,
+                                a: 1.0,
+                            },
+                            ..Default::default()
+                        });
+                    });
+                    if response.trigger_start() {
+                        control.close_requested = true;
+                    }
                 });
             });
 
@@ -139,6 +230,15 @@ impl AppState<Vertex> for State {
         );
 
         self.draw.end_frame();
+        self.input.maintain();
+    }
+
+    fn on_event(&mut self, event: Event<()>, _: &mut Window) -> bool {
+        if let Event::WindowEvent { event, .. } = event {
+            self.input.on_event(&event);
+        }
+
+        true
     }
 }
 

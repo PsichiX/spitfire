@@ -3,7 +3,7 @@ use glow::{Context, HasContext};
 #[cfg(not(target_arch = "wasm32"))]
 use glutin::{
     ContextBuilder, ContextWrapper, PossiblyCurrent,
-    dpi::LogicalSize,
+    dpi::{LogicalPosition, LogicalSize},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     platform::run_return::EventLoopExtRunReturn,
@@ -21,9 +21,9 @@ use winit::{
 
 #[allow(unused_variables)]
 pub trait AppState<V: GlowVertexAttribs> {
-    fn on_init(&mut self, graphics: &mut Graphics<V>) {}
+    fn on_init(&mut self, graphics: &mut Graphics<V>, control: &mut AppControl) {}
 
-    fn on_redraw(&mut self, graphics: &mut Graphics<V>) {}
+    fn on_redraw(&mut self, graphics: &mut Graphics<V>, control: &mut AppControl) {}
 
     fn on_event(&mut self, event: Event<()>, window: &mut Window) -> bool {
         true
@@ -128,10 +128,6 @@ impl AppConfig {
 }
 
 pub struct App<V: GlowVertexAttribs> {
-    #[cfg(not(target_arch = "wasm32"))]
-    width: u32,
-    #[cfg(not(target_arch = "wasm32"))]
-    height: u32,
     refresh_on_event: bool,
     event_loop: EventLoop<()>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -139,6 +135,7 @@ pub struct App<V: GlowVertexAttribs> {
     #[cfg(target_arch = "wasm32")]
     window: Window,
     graphics: Graphics<V>,
+    control: AppControl,
 }
 
 impl<V: GlowVertexAttribs> Default for App<V> {
@@ -246,10 +243,6 @@ impl<V: GlowVertexAttribs> App<V> {
         let mut graphics = Graphics::<V>::new(context);
         graphics.color = color;
         Self {
-            #[cfg(not(target_arch = "wasm32"))]
-            width,
-            #[cfg(not(target_arch = "wasm32"))]
-            height,
             refresh_on_event,
             event_loop,
             #[cfg(not(target_arch = "wasm32"))]
@@ -257,18 +250,30 @@ impl<V: GlowVertexAttribs> App<V> {
             #[cfg(target_arch = "wasm32")]
             window,
             graphics,
+            control: AppControl {
+                x: 0,
+                y: 0,
+                dirty_pos: false,
+                width,
+                height,
+                dirty_size: false,
+                minimized: false,
+                dirty_minimized: false,
+                maximized,
+                dirty_maximized: false,
+                close_requested: false,
+            },
         }
     }
 
     pub fn run<S: AppState<V> + 'static>(self, mut state: S) {
         #[cfg(not(target_arch = "wasm32"))]
         let App {
-            mut width,
-            mut height,
             refresh_on_event,
             mut event_loop,
             context_wrapper,
             mut graphics,
+            mut control,
         } = self;
         #[cfg(target_arch = "wasm32")]
         let App {
@@ -276,15 +281,48 @@ impl<V: GlowVertexAttribs> App<V> {
             event_loop,
             mut window,
             mut graphics,
+            mut control,
         } = self;
         #[cfg(not(target_arch = "wasm32"))]
         let (context, mut window) = unsafe { context_wrapper.split() };
-        state.on_init(&mut graphics);
+        if let Ok(pos) = window.outer_position() {
+            control.x = pos.x;
+            control.y = pos.y;
+        }
+        let size = window.inner_size();
+        control.width = size.width;
+        control.height = size.height;
+        control.minimized = control.width == 0 || control.height == 0;
+        control.maximized = window.is_maximized();
+        state.on_init(&mut graphics, &mut control);
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut running = true;
             while running {
+                if control.close_requested {
+                    break;
+                }
                 event_loop.run_return(|event, _, control_flow| {
+                    if control.dirty_pos {
+                        control.dirty_pos = false;
+                        window.set_outer_position(LogicalPosition::new(control.x, control.y));
+                    }
+                    if control.dirty_size {
+                        control.dirty_size = false;
+                        window.set_inner_size(LogicalSize::new(control.width, control.height));
+                    }
+                    if control.dirty_minimized {
+                        control.dirty_minimized = false;
+                        window.set_minimized(control.minimized);
+                    } else {
+                        control.minimized = control.width == 0 || control.height == 0;
+                    }
+                    if control.dirty_maximized {
+                        control.dirty_maximized = false;
+                        window.set_maximized(control.maximized);
+                    } else {
+                        control.maximized = window.is_maximized();
+                    }
                     *control_flow = if refresh_on_event {
                         ControlFlow::Wait
                     } else {
@@ -293,15 +331,17 @@ impl<V: GlowVertexAttribs> App<V> {
                     match &event {
                         Event::MainEventsCleared => {
                             unsafe {
-                                graphics
-                                    .context()
-                                    .unwrap()
-                                    .viewport(0, 0, width as _, height as _);
+                                graphics.context().unwrap().viewport(
+                                    0,
+                                    0,
+                                    control.width as _,
+                                    control.height as _,
+                                );
                             }
-                            graphics.main_camera.screen_size.x = width as _;
-                            graphics.main_camera.screen_size.y = height as _;
+                            graphics.main_camera.screen_size.x = control.width as _;
+                            graphics.main_camera.screen_size.y = control.height as _;
                             let _ = graphics.prepare_frame(true);
-                            state.on_redraw(&mut graphics);
+                            state.on_redraw(&mut graphics, &mut control);
                             let _ = graphics.draw();
                             let _ = context.swap_buffers();
                             *control_flow = ControlFlow::Exit;
@@ -309,11 +349,17 @@ impl<V: GlowVertexAttribs> App<V> {
                         Event::WindowEvent { event, .. } => match event {
                             WindowEvent::Resized(physical_size) => {
                                 context.resize(*physical_size);
-                                width = physical_size.width;
-                                height = physical_size.height;
+                                control.width = physical_size.width;
+                                control.height = physical_size.height;
+                                control.minimized = control.width == 0 || control.height == 0;
                             }
                             WindowEvent::CloseRequested => {
                                 running = false;
+                                control.close_requested = true;
+                            }
+                            WindowEvent::Moved(physical_position) => {
+                                control.x = physical_position.x;
+                                control.y = physical_position.y;
                             }
                             _ => {}
                         },
@@ -344,13 +390,18 @@ impl<V: GlowVertexAttribs> App<V> {
                             .as_f64()
                             .unwrap()
                             .max(1.0);
+                        control.x = 0;
+                        control.y = 0;
+                        control.width = width as _;
+                        control.height = height as _;
+                        control.maximized = true;
                         let scaled_width = width * window.scale_factor();
                         let scaled_height = height * window.scale_factor();
                         window.set_inner_size(LogicalSize::new(width, height));
                         graphics.main_camera.screen_size.x = scaled_width as _;
                         graphics.main_camera.screen_size.y = scaled_height as _;
                         let _ = graphics.prepare_frame(true);
-                        state.on_redraw(&mut graphics);
+                        state.on_redraw(&mut graphics, &mut control);
                         let _ = graphics.draw();
                         window.request_redraw();
                     }
@@ -359,5 +410,72 @@ impl<V: GlowVertexAttribs> App<V> {
                 state.on_event(event, &mut window);
             });
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct AppControl {
+    x: i32,
+    y: i32,
+    dirty_pos: bool,
+    width: u32,
+    height: u32,
+    dirty_size: bool,
+    minimized: bool,
+    dirty_minimized: bool,
+    maximized: bool,
+    dirty_maximized: bool,
+    pub close_requested: bool,
+}
+
+impl AppControl {
+    pub fn position(&self) -> (i32, i32) {
+        (self.x, self.y)
+    }
+
+    pub fn set_position(&mut self, x: i32, y: i32) {
+        if self.x == x && self.y == y {
+            return;
+        }
+        self.x = x;
+        self.y = y;
+        self.dirty_pos = true;
+    }
+
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
+    pub fn set_size(&mut self, width: u32, height: u32) {
+        if self.width == width && self.height == height {
+            return;
+        }
+        self.width = width;
+        self.height = height;
+        self.dirty_size = true;
+    }
+
+    pub fn minimized(&self) -> bool {
+        self.minimized
+    }
+
+    pub fn set_minimized(&mut self, minimized: bool) {
+        if self.minimized == minimized {
+            return;
+        }
+        self.minimized = minimized;
+        self.dirty_minimized = true;
+    }
+
+    pub fn maximized(&self) -> bool {
+        self.maximized
+    }
+
+    pub fn set_maximized(&mut self, maximized: bool) {
+        if self.maximized == maximized {
+            return;
+        }
+        self.maximized = maximized;
+        self.dirty_maximized = true;
     }
 }

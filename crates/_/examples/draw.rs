@@ -52,7 +52,7 @@ impl Default for State {
 }
 
 impl AppState<Vertex> for State {
-    fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
         graphics.main_camera.scaling = CameraScaling::FitToView {
@@ -105,7 +105,7 @@ impl AppState<Vertex> for State {
         );
     }
 
-    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         // Here we emulate fixed step simulation.
         if self.timer.elapsed().as_secs_f32() > DELTA_TIME {
             self.timer = Instant::now();

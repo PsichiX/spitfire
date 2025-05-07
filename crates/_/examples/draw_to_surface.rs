@@ -13,7 +13,7 @@ struct State {
 }
 
 impl AppState<Vertex> for State {
-    fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
 
@@ -39,7 +39,7 @@ impl AppState<Vertex> for State {
         );
     }
 
-    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         self.context.begin_frame(graphics);
         self.context.push_shader(&ShaderRef::name("image"));
         self.context.push_blending(GlowBlending::Alpha);

@@ -89,7 +89,7 @@ impl AppState<Vertex> for State {
     // init gets called as soon as Graphics gets constructed.
     // at this phase you might want to setup Graphics and
     // acquire resources.
-    fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         graphics.color = [0.25, 0.25, 0.25, 1.0];
         graphics.main_camera.screen_alignment = 0.5.into();
 
@@ -129,7 +129,7 @@ impl AppState<Vertex> for State {
     // redraw gets called whenever window processes its main events.
     // here you want to stream vertices into Graphics's stream.
     // stream will be rendered after this method completes.
-    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         let text_renderer = self.text_renderer.as_mut().unwrap();
         let fonts_texture = self.fonts_texture.as_mut().unwrap();
         let ferris_texture = self.ferris_texture.clone().unwrap();

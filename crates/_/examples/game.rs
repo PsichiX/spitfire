@@ -398,7 +398,7 @@ impl State {
 }
 
 impl AppState<Vertex> for State {
-    fn on_init(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         graphics.color = [0.25, 0.25, 0.25, 1.0];
 
         self.load_shader(
@@ -450,7 +450,7 @@ impl AppState<Vertex> for State {
         );
     }
 
-    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>) {
+    fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
         self.draw.begin_frame(graphics);
         self.draw.push_shader(&ShaderRef::name("image"));
         self.draw.push_blending(GlowBlending::Alpha);
