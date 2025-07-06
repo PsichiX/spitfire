@@ -306,7 +306,7 @@ impl State {
 
     fn score(&self, title: &str, value: usize, horizontal_align: TextBoxHorizontalAlign) {
         text_box(TextBoxProps {
-            text: format!("{}: {}", title, value),
+            text: format!("{title}: {value}"),
             horizontal_align,
             vertical_align: TextBoxVerticalAlign::Bottom,
             font: TextBoxFont {

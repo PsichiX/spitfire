@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-glow"
-version = "0.34.1"
+version = "0.34.2"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "GLOW renderer module for Spitfire toolset"
@@ -16,7 +16,7 @@ debug_automatic_glGetError = ["glow/debug_automatic_glGetError"]
 [dependencies]
 spitfire-core = { version = "0.34", path = "../core" }
 bytemuck = { version = "1", features = ["derive"] }
-glow = "0.14"
+glow = "0.16"
 vek = "0.17"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

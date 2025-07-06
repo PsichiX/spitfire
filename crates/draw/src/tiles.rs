@@ -419,7 +419,7 @@ impl<T: Into<Vec2<usize>>> Index<T> for TileMap {
         let index = self.index(location);
         self.buffer
             .get(index)
-            .unwrap_or_else(|| panic!("Invalid location: {}", location))
+            .unwrap_or_else(|| panic!("Invalid location: {location}"))
     }
 }
 
@@ -429,6 +429,6 @@ impl<T: Into<Vec2<usize>>> IndexMut<T> for TileMap {
         let index = self.index(location);
         self.buffer
             .get_mut(index)
-            .unwrap_or_else(|| panic!("Invalid location: {}", location))
+            .unwrap_or_else(|| panic!("Invalid location: {location}"))
     }
 }

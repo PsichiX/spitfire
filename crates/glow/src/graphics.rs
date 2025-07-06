@@ -6,7 +6,7 @@ use bytemuck::{Pod, Zeroable};
 use glow::{
     BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, Context, FILL, FRAGMENT_SHADER,
     FRAMEBUFFER, FRONT_AND_BACK, Framebuffer as GlowFrameBuffer, HasContext, NEAREST,
-    Program as GlowProgram, SCISSOR_TEST, Shader as GlowShader, TEXTURE_2D_ARRAY,
+    PixelUnpackData, Program as GlowProgram, SCISSOR_TEST, Shader as GlowShader, TEXTURE_2D_ARRAY,
     TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T,
     Texture as GlowTexture, UNSIGNED_BYTE, VERTEX_SHADER,
 };
@@ -160,8 +160,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                 .any(|item| item.texture.width() != width || item.texture.height() != height)
             {
                 return Err(format!(
-                    "Some surface texture has different size than expected: {} x {}",
-                    width, height
+                    "Some surface texture has different size than expected: {width} x {height}"
                 ));
             }
         }
@@ -658,7 +657,7 @@ impl Texture {
                     0,
                     format.into_gl(),
                     UNSIGNED_BYTE,
-                    data,
+                    PixelUnpackData::Slice(data),
                 );
                 self.inner.size.set((width, height, depth));
                 self.inner.format.set(format);
