@@ -2,8 +2,16 @@ use glutin::{
     event::{Event, VirtualKeyCode},
     window::Window,
 };
-use spitfire_draw::prelude::*;
-use spitfire_glow::prelude::*;
+use spitfire_draw::{
+    context::DrawContext,
+    sprite::{Sprite, SpriteTexture},
+    utils::{Drawable, ShaderRef, TextureRef, Vertex},
+};
+use spitfire_glow::{
+    app::{App, AppControl, AppState},
+    graphics::{Graphics, Shader, Texture},
+    renderer::{GlowBlending, GlowTextureFormat},
+};
 use spitfire_input::*;
 use std::{fs::File, path::Path, time::Instant};
 use vek::{Quaternion, Rgba, Vec2};

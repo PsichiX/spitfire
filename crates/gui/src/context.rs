@@ -1,4 +1,4 @@
-use crate::{interactions::GuiInteractionsEngine, prelude::GuiRenderer};
+use crate::{interactions::GuiInteractionsEngine, renderer::GuiRenderer};
 #[cfg(target_arch = "wasm32")]
 use instant::Instant;
 use raui_core::{
@@ -11,9 +11,15 @@ use raui_core::{
     },
 };
 use raui_immediate::*;
-use spitfire_draw::prelude::*;
+use spitfire_draw::{
+    context::DrawContext,
+    utils::{ShaderRef, Vertex},
+};
 use spitfire_fontdue::*;
-use spitfire_glow::prelude::*;
+use spitfire_glow::{
+    graphics::{Graphics, Texture},
+    renderer::{GlowTextureFiltering, GlowTextureFormat},
+};
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 

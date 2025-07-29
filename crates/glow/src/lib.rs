@@ -26,8 +26,3 @@ pub mod log {
         ($($t:tt)*) => (println!("{}", &format_args!($($t)*).to_string()))
     }
 }
-
-pub mod prelude {
-    #[allow(unused_imports)]
-    pub use crate::{app::*, graphics::*, log::*, renderer::*};
-}

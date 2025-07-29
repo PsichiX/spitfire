@@ -4,7 +4,14 @@ use fontdue::{
     layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle},
 };
 use spitfire_fontdue::*;
-use spitfire_glow::prelude::*;
+use spitfire_glow::{
+    app::{App, AppControl, AppState},
+    graphics::{Graphics, GraphicsBatch, Shader, Texture},
+    renderer::{
+        GlowBlending, GlowTextureFiltering, GlowTextureFormat, GlowUniformValue, GlowVertexAttrib,
+        GlowVertexAttribs,
+    },
+};
 use std::{collections::HashMap, fs::File, path::Path};
 
 fn main() {
