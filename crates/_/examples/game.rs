@@ -406,7 +406,7 @@ impl State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
-        graphics.color = [0.25, 0.25, 0.25, 1.0];
+        graphics.state.color = [0.25, 0.25, 0.25, 1.0];
 
         self.load_shader(
             graphics,

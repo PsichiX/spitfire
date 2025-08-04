@@ -51,8 +51,8 @@ struct State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
-        graphics.color = [0.25, 0.25, 0.25, 1.0];
-        graphics.main_camera.screen_alignment = 0.5.into();
+        graphics.state.color = [0.25, 0.25, 0.25, 1.0];
+        graphics.state.main_camera.screen_alignment = 0.5.into();
         self.gui.coords_map_scaling = CoordsMappingScaling::FitToView(512.0.into(), false);
         self.gui.interactions.engine.deselect_when_no_button_found = true;
         self.gui.texture_filtering = GlowTextureFiltering::Linear;

@@ -6,7 +6,7 @@ use crate::{
 use smallvec::SmallVec;
 use spitfire_core::{Triangle, VertexStream};
 use spitfire_glow::{
-    graphics::{Graphics, GraphicsBatch},
+    graphics::{GraphicsBatch, GraphicsTarget},
     renderer::{GlowBlending, GlowUniformValue},
 };
 use std::{
@@ -171,7 +171,7 @@ impl PrimitivesEmitter {
     fn stream_transformed(
         &self,
         context: &mut DrawContext,
-        graphics: &mut Graphics<Vertex>,
+        graphics: &mut dyn GraphicsTarget<Vertex>,
         f: impl FnMut(&mut VertexStream<Vertex, GraphicsBatch>),
     ) {
         let batch = GraphicsBatch {
@@ -184,9 +184,9 @@ impl PrimitivesEmitter {
                     "u_projection_view".into(),
                     GlowUniformValue::M4(
                         if self.screen_space {
-                            graphics.main_camera.screen_matrix()
+                            graphics.state().main_camera.screen_matrix()
                         } else {
-                            graphics.main_camera.world_matrix()
+                            graphics.state().main_camera.world_matrix()
                         }
                         .into_col_array(),
                     ),
@@ -206,9 +206,9 @@ impl PrimitivesEmitter {
             scissor: None,
             wireframe: context.wireframe,
         };
-        graphics.stream.batch_optimized(batch);
+        graphics.state_mut().stream.batch_optimized(batch);
         let transform = context.top_transform();
-        graphics.stream.transformed(f, |vertex| {
+        graphics.state_mut().stream.transformed(f, |vertex| {
             let point = transform.mul_point(Vec2::from(vertex.position));
             vertex.position[0] = point.x;
             vertex.position[1] = point.y;
@@ -250,7 +250,7 @@ impl<I: IntoIterator<Item = Vec2<f32>>> LinesDraw<'_, I> {
 }
 
 impl<I: IntoIterator<Item = Vec2<f32>>> Drawable for LinesDraw<'_, I> {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         fn push(
             stream: &mut VertexStream<Vertex, GraphicsBatch>,
             region: Rect<f32, f32>,
@@ -340,7 +340,7 @@ impl<I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> BrushDraw<'_, I> {
 }
 
 impl<I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>> Drawable for BrushDraw<'_, I> {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         fn push(
             stream: &mut VertexStream<Vertex, GraphicsBatch>,
             region: Rect<f32, f32>,
@@ -441,7 +441,7 @@ pub struct TrianglesDraw<'a, I: IntoIterator<Item = [Vertex; 3]>> {
 }
 
 impl<I: IntoIterator<Item = [Vertex; 3]>> Drawable for TrianglesDraw<'_, I> {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         self.emitter
             .stream_transformed(context, graphics, |stream| {
                 if let Some(vertices) = self.vertices.borrow_mut().take() {
@@ -469,7 +469,7 @@ pub struct TriangleFanDraw<'a, I: IntoIterator<Item = Vertex>> {
 }
 
 impl<I: IntoIterator<Item = Vertex>> Drawable for TriangleFanDraw<'_, I> {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         self.emitter
             .stream_transformed(context, graphics, |stream| {
                 if let Some(vertices) = self.vertices.borrow_mut().take() {
@@ -485,7 +485,7 @@ pub struct TriangleStripDraw<'a, I: IntoIterator<Item = Vertex>> {
 }
 
 impl<I: IntoIterator<Item = Vertex>> Drawable for TriangleStripDraw<'_, I> {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         self.emitter
             .stream_transformed(context, graphics, |stream| {
                 if let Some(vertices) = self.vertices.borrow_mut().take() {
@@ -519,7 +519,7 @@ impl RegularPolygonDraw<'_> {
 }
 
 impl Drawable for RegularPolygonDraw<'_> {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         let color = self.tint.into_array();
         self.emitter
             .stream_transformed(context, graphics, |stream| {

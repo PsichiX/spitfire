@@ -4,7 +4,7 @@ use crate::{
 };
 use smallvec::SmallVec;
 use spitfire_glow::{
-    graphics::{Graphics, GraphicsBatch},
+    graphics::{GraphicsBatch, GraphicsTarget},
     renderer::{GlowBlending, GlowTextureFiltering, GlowUniformValue},
 };
 use std::{borrow::Cow, collections::HashMap};
@@ -146,7 +146,7 @@ impl Sprite {
 }
 
 impl Drawable for Sprite {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         let batch = GraphicsBatch {
             shader: context.shader(self.shader.as_ref()),
             uniforms: self
@@ -157,9 +157,9 @@ impl Drawable for Sprite {
                     "u_projection_view".into(),
                     GlowUniformValue::M4(
                         if self.screen_space {
-                            graphics.main_camera.screen_matrix()
+                            graphics.state().main_camera.screen_matrix()
                         } else {
-                            graphics.main_camera.world_matrix()
+                            graphics.state().main_camera.world_matrix()
                         }
                         .into_col_array(),
                     ),
@@ -191,8 +191,8 @@ impl Drawable for Sprite {
             .unwrap_or_default();
         let offset = size * self.pivot;
         let color = self.tint.into_array();
-        graphics.stream.batch_optimized(batch);
-        graphics.stream.transformed(
+        graphics.state_mut().stream.batch_optimized(batch);
+        graphics.state_mut().stream.transformed(
             |stream| {
                 stream.quad([
                     Vertex {

@@ -23,8 +23,8 @@ struct State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
-        graphics.color = [0.25, 0.25, 0.25, 1.0];
-        graphics.main_camera.screen_alignment = 0.5.into();
+        graphics.state.color = [0.25, 0.25, 0.25, 1.0];
+        graphics.state.main_camera.screen_alignment = 0.5.into();
 
         self.context.shaders.insert(
             "image".into(),

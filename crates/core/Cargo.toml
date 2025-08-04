@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-core"
-version = "0.35.0"
+version = "0.36.0"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Core module for Spitfire toolset"

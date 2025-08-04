@@ -241,7 +241,7 @@ impl<V: GlowVertexAttribs> App<V> {
             panic!("* Minimum GL version required is 3.0!");
         }
         let mut graphics = Graphics::<V>::new(context);
-        graphics.color = color;
+        graphics.state.color = color;
         Self {
             refresh_on_event,
             event_loop,
@@ -338,8 +338,8 @@ impl<V: GlowVertexAttribs> App<V> {
                                     control.height as _,
                                 );
                             }
-                            graphics.main_camera.screen_size.x = control.width as _;
-                            graphics.main_camera.screen_size.y = control.height as _;
+                            graphics.state.main_camera.screen_size.x = control.width as _;
+                            graphics.state.main_camera.screen_size.y = control.height as _;
                             let _ = graphics.prepare_frame(true);
                             state.on_redraw(&mut graphics, &mut control);
                             let _ = graphics.draw();
@@ -398,8 +398,8 @@ impl<V: GlowVertexAttribs> App<V> {
                         let scaled_width = width * window.scale_factor();
                         let scaled_height = height * window.scale_factor();
                         window.set_inner_size(LogicalSize::new(width, height));
-                        graphics.main_camera.screen_size.x = scaled_width as _;
-                        graphics.main_camera.screen_size.y = scaled_height as _;
+                        graphics.state.main_camera.screen_size.x = scaled_width as _;
+                        graphics.state.main_camera.screen_size.y = scaled_height as _;
                         let _ = graphics.prepare_frame(true);
                         state.on_redraw(&mut graphics, &mut control);
                         let _ = graphics.draw();

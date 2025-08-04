@@ -3,7 +3,7 @@ use bytemuck::{Pod, Zeroable};
 use fontdue::Font;
 use spitfire_fontdue::TextVertex;
 use spitfire_glow::{
-    graphics::{Graphics, Shader, Texture},
+    graphics::{GraphicsTarget, Shader, Texture},
     renderer::{GlowVertexAttrib, GlowVertexAttribs},
 };
 use std::borrow::Cow;
@@ -62,7 +62,7 @@ impl TextVertex<Rgba<f32>> for Vertex {
 }
 
 pub trait Drawable {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>);
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>);
 }
 
 #[derive(Debug, Clone)]

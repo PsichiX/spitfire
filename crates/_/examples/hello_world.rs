@@ -97,8 +97,8 @@ impl AppState<Vertex> for State {
     // at this phase you might want to setup Graphics and
     // acquire resources.
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
-        graphics.color = [0.25, 0.25, 0.25, 1.0];
-        graphics.main_camera.screen_alignment = 0.5.into();
+        graphics.state.color = [0.25, 0.25, 0.25, 1.0];
+        graphics.state.main_camera.screen_alignment = 0.5.into();
 
         self.color_shader = Some(
             graphics
@@ -146,17 +146,17 @@ impl AppState<Vertex> for State {
         let mut uniforms = HashMap::default();
         uniforms.insert(
             "u_projection_view".into(),
-            GlowUniformValue::M4(graphics.main_camera.world_matrix().into_col_array()),
+            GlowUniformValue::M4(graphics.state.main_camera.world_matrix().into_col_array()),
         );
         uniforms.insert("u_image".into(), GlowUniformValue::I1(0));
 
-        graphics.stream.batch(GraphicsBatch {
+        graphics.state.stream.batch(GraphicsBatch {
             shader: self.color_shader.clone(),
             uniforms: uniforms.clone(),
             ..Default::default()
         });
 
-        graphics.stream.triangle_fan([
+        graphics.state.stream.triangle_fan([
             Vertex {
                 position: [-500.0, -500.0],
                 uv: [0.0, 0.0, 0.0],
@@ -179,7 +179,7 @@ impl AppState<Vertex> for State {
             },
         ]);
 
-        graphics.stream.triangle_strip([
+        graphics.state.stream.triangle_strip([
             Vertex {
                 position: [-500.0, 0.0],
                 uv: [0.0, 0.0, 0.0],
@@ -212,7 +212,7 @@ impl AppState<Vertex> for State {
             },
         ]);
 
-        graphics.stream.batch(GraphicsBatch {
+        graphics.state.stream.batch(GraphicsBatch {
             shader: self.sprite_shader.clone(),
             uniforms: uniforms.clone(),
             textures: vec![(ferris_texture, GlowTextureFiltering::Linear)],
@@ -220,7 +220,7 @@ impl AppState<Vertex> for State {
             ..Default::default()
         });
 
-        graphics.stream.quad(ferris_vertices);
+        graphics.state.stream.quad(ferris_vertices);
 
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.reset(&LayoutSettings {
@@ -242,7 +242,7 @@ impl AppState<Vertex> for State {
             Some(text_renderer.image()),
         );
 
-        graphics.stream.batch(GraphicsBatch {
+        graphics.state.stream.batch(GraphicsBatch {
             shader: self.text_shader.clone(),
             uniforms: uniforms.clone(),
             textures: vec![(fonts_texture.clone(), GlowTextureFiltering::Linear)],
@@ -250,7 +250,7 @@ impl AppState<Vertex> for State {
             ..Default::default()
         });
 
-        text_renderer.render_to_stream(&mut graphics.stream);
+        text_renderer.render_to_stream(&mut graphics.state.stream);
     }
 }
 

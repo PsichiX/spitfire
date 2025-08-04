@@ -6,7 +6,7 @@ use crate::{
 use smallvec::SmallVec;
 use spitfire_core::Triangle;
 use spitfire_glow::{
-    graphics::{Graphics, GraphicsBatch},
+    graphics::{GraphicsBatch, GraphicsTarget},
     renderer::{GlowBlending, GlowUniformValue},
 };
 use std::{borrow::Cow, collections::HashMap};
@@ -203,7 +203,7 @@ impl NineSliceSprite {
 }
 
 impl Drawable for NineSliceSprite {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         let batch = GraphicsBatch {
             shader: context.shader(self.shader.as_ref()),
             uniforms: self
@@ -214,9 +214,9 @@ impl Drawable for NineSliceSprite {
                     "u_projection_view".into(),
                     GlowUniformValue::M4(
                         if self.screen_space {
-                            graphics.main_camera.screen_matrix()
+                            graphics.state().main_camera.screen_matrix()
                         } else {
-                            graphics.main_camera.world_matrix()
+                            graphics.state().main_camera.world_matrix()
                         }
                         .into_col_array(),
                     ),
@@ -266,8 +266,8 @@ impl Drawable for NineSliceSprite {
         let ttc = self.region.y + self.region.h * margins_source.top;
         let tbc = self.region.y + (1.0 - margins_source.bottom) * self.region.h;
         let tbf = self.region.y + self.region.h;
-        graphics.stream.batch_optimized(batch);
-        graphics.stream.transformed(
+        graphics.state_mut().stream.batch_optimized(batch);
+        graphics.state_mut().stream.transformed(
             |stream| unsafe {
                 stream.extend_triangles(
                     true,

@@ -26,8 +26,8 @@ impl Pixels {
     }
 
     pub fn from_screen(graphics: &Graphics<Vertex>) -> Result<Self, String> {
-        let width = graphics.main_camera.screen_size.x as u32;
-        let height = graphics.main_camera.screen_size.y as u32;
+        let width = graphics.state.main_camera.screen_size.x as u32;
+        let height = graphics.state.main_camera.screen_size.y as u32;
         Ok(Self {
             texture: graphics.texture(width, height, 1, GlowTextureFormat::Rgba, None)?,
             buffer: vec![0; (width * height * 4) as usize],

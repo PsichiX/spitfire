@@ -79,9 +79,9 @@ impl GuiContext {
         let coords_mapping = CoordsMapping::new_scaling(
             Rect {
                 left: 0.0,
-                right: graphics.main_camera.screen_size.x,
+                right: graphics.state.main_camera.screen_size.x,
                 top: 0.0,
-                bottom: graphics.main_camera.screen_size.y,
+                bottom: graphics.state.main_camera.screen_size.y,
             },
             self.coords_map_scaling,
         );

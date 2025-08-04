@@ -1,5 +1,6 @@
 pub mod canvas;
 pub mod context;
+pub mod draw_buffer;
 pub mod nine_slice_sprite;
 pub mod particles;
 pub mod pixels;

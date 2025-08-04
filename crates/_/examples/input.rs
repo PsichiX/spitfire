@@ -133,9 +133,10 @@ impl Player {
                 .unwrap_or_default();
             let input_rotate = self.input_rotate.get();
 
-            graphics.main_camera.transform.position += input_move * self.speed;
-            graphics.main_camera.transform.orientation = graphics.main_camera.transform.orientation
-                * Quaternion::rotation_z(input_rotate * 5.0_f32.to_radians());
+            graphics.state.main_camera.transform.position += input_move * self.speed;
+            graphics.state.main_camera.transform.orientation =
+                graphics.state.main_camera.transform.orientation
+                    * Quaternion::rotation_z(input_rotate * 5.0_f32.to_radians());
         }
 
         self.sprite.draw(draw, graphics);
@@ -194,8 +195,8 @@ impl State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
-        graphics.color = [0.25, 0.25, 0.25, 1.0];
-        graphics.main_camera.screen_alignment = 0.5.into();
+        graphics.state.color = [0.25, 0.25, 0.25, 1.0];
+        graphics.state.main_camera.screen_alignment = 0.5.into();
 
         self.draw.shaders.insert(
             "color".into(),

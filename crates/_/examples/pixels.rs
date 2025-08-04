@@ -36,7 +36,7 @@ impl State {
 
 impl AppState<Vertex> for State {
     fn on_init(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
-        graphics.color = [0.25, 0.25, 0.25, 1.0];
+        graphics.state.color = [0.25, 0.25, 0.25, 1.0];
 
         self.context.shaders.insert(
             "image".into(),
@@ -47,8 +47,8 @@ impl AppState<Vertex> for State {
     }
 
     fn on_redraw(&mut self, graphics: &mut Graphics<Vertex>, _: &mut AppControl) {
-        let width = graphics.main_camera.screen_size.x as usize / 2;
-        let height = graphics.main_camera.screen_size.y as usize / 2;
+        let width = graphics.state.main_camera.screen_size.x as usize / 2;
+        let height = graphics.state.main_camera.screen_size.y as usize / 2;
         if self
             .pixels
             .as_ref()
@@ -71,7 +71,7 @@ impl AppState<Vertex> for State {
                 .unwrap()
                 .sprite_texture("u_image".into(), GlowTextureFiltering::Linear),
         )
-        .size(graphics.main_camera.screen_size)
+        .size(graphics.state.main_camera.screen_size)
         .draw(&mut self.context, graphics);
 
         self.context.end_frame();

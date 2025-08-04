@@ -7,7 +7,7 @@ use fontdue::layout::{
 };
 use spitfire_fontdue::TextRenderer;
 use spitfire_glow::{
-    graphics::{Graphics, GraphicsBatch},
+    graphics::{GraphicsBatch, GraphicsTarget},
     renderer::{GlowBlending, GlowTextureFiltering, GlowUniformValue},
 };
 use std::{borrow::Cow, collections::HashMap};
@@ -190,12 +190,18 @@ impl Text {
 }
 
 impl Drawable for Text {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         if let Some(layout) = self.make_text_layout(context) {
+            let matrix = if self.screen_space {
+                graphics.state().main_camera.screen_matrix()
+            } else {
+                graphics.state().main_camera.world_matrix()
+            }
+            .into_col_array();
             context
                 .text_renderer
                 .include(context.fonts.values(), &layout);
-            graphics.stream.batch_optimized(GraphicsBatch {
+            graphics.state_mut().stream.batch_optimized(GraphicsBatch {
                 shader: context.shader(self.shader.as_ref()),
                 uniforms: self
                     .uniforms
@@ -203,14 +209,7 @@ impl Drawable for Text {
                     .map(|(k, v)| (k.clone(), v.to_owned()))
                     .chain(std::iter::once((
                         "u_projection_view".into(),
-                        GlowUniformValue::M4(
-                            if self.screen_space {
-                                graphics.main_camera.screen_matrix()
-                            } else {
-                                graphics.main_camera.world_matrix()
-                            }
-                            .into_col_array(),
-                        ),
+                        GlowUniformValue::M4(matrix),
                     )))
                     .chain(std::iter::once(("u_image".into(), GlowUniformValue::I1(0))))
                     .collect(),
@@ -224,7 +223,7 @@ impl Drawable for Text {
                 wireframe: context.wireframe,
             });
             let transform = context.top_transform() * transform_to_matrix(self.transform);
-            graphics.stream.transformed(
+            graphics.state_mut().stream.transformed(
                 |stream| {
                     context.text_renderer.render_to_stream(stream);
                 },

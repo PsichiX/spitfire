@@ -5,7 +5,7 @@ use crate::{
 };
 use smallvec::SmallVec;
 use spitfire_glow::{
-    graphics::{Graphics, GraphicsBatch},
+    graphics::{GraphicsBatch, GraphicsTarget},
     renderer::{GlowBlending, GlowUniformValue},
 };
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, marker::PhantomData};
@@ -138,7 +138,7 @@ pub struct ParticleDraw<'a, I: IntoIterator<Item = ParticleInstance>> {
 }
 
 impl<I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'_, I> {
-    fn draw(&self, context: &mut DrawContext, graphics: &mut Graphics<Vertex>) {
+    fn draw(&self, context: &mut DrawContext, graphics: &mut dyn GraphicsTarget<Vertex>) {
         let instances = match self.instances.borrow_mut().take() {
             Some(instances) => instances,
             None => return,
@@ -154,9 +154,9 @@ impl<I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'_, I> 
                     "u_projection_view".into(),
                     GlowUniformValue::M4(
                         if self.emitter.screen_space {
-                            graphics.main_camera.screen_matrix()
+                            graphics.state().main_camera.screen_matrix()
                         } else {
-                            graphics.main_camera.world_matrix()
+                            graphics.state().main_camera.world_matrix()
                         }
                         .into_col_array(),
                     ),
@@ -186,13 +186,13 @@ impl<I: IntoIterator<Item = ParticleInstance>> Drawable for ParticleDraw<'_, I> 
             scissor: None,
             wireframe: context.wireframe,
         };
-        graphics.stream.batch_optimized(batch);
+        graphics.state_mut().stream.batch_optimized(batch);
         let parent = context.top_transform();
         for instance in instances {
             let transform = parent * transform_to_matrix(instance.transform);
             let offset = instance.size * instance.pivot;
             let color = instance.tint.into_array();
-            graphics.stream.transformed(
+            graphics.state_mut().stream.transformed(
                 |stream| {
                     stream.quad([
                         Vertex {

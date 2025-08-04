@@ -35,8 +35,8 @@ impl Canvas {
         texture_formats: Vec<GlowTextureFormat>,
         graphics: &Graphics<Vertex>,
     ) -> Result<Self, String> {
-        let width = graphics.main_camera.screen_size.x as _;
-        let height = graphics.main_camera.screen_size.y as _;
+        let width = graphics.state.main_camera.screen_size.x as _;
+        let height = graphics.state.main_camera.screen_size.y as _;
         Ok(Self {
             surface: graphics.surface(
                 texture_formats
@@ -58,8 +58,8 @@ impl Canvas {
     }
 
     pub fn match_to_screen(&mut self, graphics: &Graphics<Vertex>) -> Result<(), String> {
-        let width = graphics.main_camera.screen_size.x as _;
-        let height = graphics.main_camera.screen_size.y as _;
+        let width = graphics.state.main_camera.screen_size.x as _;
+        let height = graphics.state.main_camera.screen_size.y as _;
         if self.surface.width() != width || self.surface.height() != height {
             self.surface = graphics.surface(
                 self.surface

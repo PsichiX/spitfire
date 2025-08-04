@@ -49,6 +49,17 @@ impl<V: Pod, B> Default for VertexStream<V, B> {
     }
 }
 
+impl<V: Pod, B: Clone> Clone for VertexStream<V, B> {
+    fn clone(&self) -> Self {
+        Self {
+            vertices: self.vertices.clone(),
+            triangles: self.triangles.clone(),
+            batches: self.batches.clone(),
+            resize_count: self.resize_count,
+        }
+    }
+}
+
 impl<V: Pod, B> VertexStream<V, B> {
     pub fn new(resize_count: usize) -> Self {
         Self {

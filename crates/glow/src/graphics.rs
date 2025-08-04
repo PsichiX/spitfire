@@ -105,11 +105,60 @@ impl StrongContext {
     }
 }
 
-pub struct Graphics<V: GlowVertexAttribs> {
+pub trait GraphicsTarget<V: GlowVertexAttribs> {
+    fn state(&self) -> &GraphicsState<V>;
+    fn state_mut(&mut self) -> &mut GraphicsState<V>;
+}
+
+pub struct GraphicsState<V: GlowVertexAttribs> {
     pub main_camera: Camera,
     pub color: [f32; 4],
     pub stream: VertexStream<V, GraphicsBatch>,
-    state: GlowState,
+}
+
+impl<V: GlowVertexAttribs> Default for GraphicsState<V> {
+    fn default() -> Self {
+        Self {
+            main_camera: Default::default(),
+            color: [1.0, 1.0, 1.0, 1.0],
+            stream: Default::default(),
+        }
+    }
+}
+
+impl<V: GlowVertexAttribs> Clone for GraphicsState<V> {
+    fn clone(&self) -> Self {
+        Self {
+            main_camera: self.main_camera,
+            color: self.color,
+            stream: self.stream.clone(),
+        }
+    }
+}
+
+impl<V: GlowVertexAttribs> GraphicsState<V> {
+    pub fn fork(&self) -> Self {
+        Self {
+            main_camera: self.main_camera,
+            color: self.color,
+            stream: self.stream.fork(),
+        }
+    }
+}
+
+impl<V: GlowVertexAttribs> GraphicsTarget<V> for GraphicsState<V> {
+    fn state(&self) -> &Self {
+        self
+    }
+
+    fn state_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+pub struct Graphics<V: GlowVertexAttribs> {
+    pub state: GraphicsState<V>,
+    glow_state: GlowState,
     context: StrongContext,
     surface_stack: Vec<(Surface, Vec2<f32>, [f32; 4])>,
 }
@@ -117,7 +166,7 @@ pub struct Graphics<V: GlowVertexAttribs> {
 impl<V: GlowVertexAttribs> Drop for Graphics<V> {
     fn drop(&mut self) {
         if let Some(context) = self.context.get() {
-            self.state.dispose(&context);
+            self.glow_state.dispose(&context);
         }
     }
 }
@@ -125,10 +174,8 @@ impl<V: GlowVertexAttribs> Drop for Graphics<V> {
 impl<V: GlowVertexAttribs> Graphics<V> {
     pub fn new(context: Context) -> Self {
         Self {
-            main_camera: Default::default(),
-            color: [1.0, 1.0, 1.0, 1.0],
-            stream: Default::default(),
             state: Default::default(),
+            glow_state: Default::default(),
             context: StrongContext::new(context),
             surface_stack: Default::default(),
         }
@@ -275,8 +322,8 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                 context.viewport(
                     0,
                     0,
-                    self.main_camera.screen_size.x as _,
-                    self.main_camera.screen_size.y as _,
+                    self.state.main_camera.screen_size.x as _,
+                    self.state.main_camera.screen_size.y as _,
                 );
                 context.bind_texture(TEXTURE_2D_ARRAY, None);
                 context.bind_vertex_array(None);
@@ -284,7 +331,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                 context.disable(BLEND);
                 context.disable(SCISSOR_TEST);
                 if clear {
-                    let [r, g, b, a] = self.color;
+                    let [r, g, b, a] = self.state.color;
                     context.clear_color(r, g, b, a);
                     context.clear(COLOR_BUFFER_BIT);
                 }
@@ -298,10 +345,10 @@ impl<V: GlowVertexAttribs> Graphics<V> {
 
     pub fn draw(&mut self) -> Result<(), String> {
         if let Some(context) = self.context.get() {
-            let mut renderer = GlowRenderer::<GraphicsBatch>::new(&context, &mut self.state);
-            self.stream.batch_end();
-            renderer.render(&mut self.stream)?;
-            self.stream.clear();
+            let mut renderer = GlowRenderer::<GraphicsBatch>::new(&context, &mut self.glow_state);
+            self.state.stream.batch_end();
+            renderer.render(&mut self.state.stream)?;
+            self.state.stream.clear();
             Ok(())
         } else {
             Err("Invalid context".to_owned())
@@ -310,11 +357,11 @@ impl<V: GlowVertexAttribs> Graphics<V> {
 
     pub fn push_surface(&mut self, surface: Surface) -> Result<(), String> {
         unsafe {
-            let old_size = self.main_camera.screen_size;
-            let old_color = self.color;
-            self.main_camera.screen_size.x = surface.width() as _;
-            self.main_camera.screen_size.y = surface.height() as _;
-            self.color = surface.color();
+            let old_size = self.state.main_camera.screen_size;
+            let old_color = self.state.color;
+            self.state.main_camera.screen_size.x = surface.width() as _;
+            self.state.main_camera.screen_size.y = surface.height() as _;
+            self.state.color = surface.color();
             if let Some(context) = self.context.get() {
                 context.bind_framebuffer(FRAMEBUFFER, Some(surface.handle()));
                 self.surface_stack.push((surface, old_size, old_color));
@@ -329,8 +376,8 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         unsafe {
             if let Some(context) = self.context.get() {
                 if let Some((surface, size, color)) = self.surface_stack.pop() {
-                    self.main_camera.screen_size = size;
-                    self.color = color;
+                    self.state.main_camera.screen_size = size;
+                    self.state.color = color;
                     if let Some((surface, _, _)) = self.surface_stack.last() {
                         context.bind_framebuffer(FRAMEBUFFER, Some(surface.handle()));
                     } else {
@@ -344,6 +391,16 @@ impl<V: GlowVertexAttribs> Graphics<V> {
                 Err("Invalid context".to_owned())
             }
         }
+    }
+}
+
+impl<V: GlowVertexAttribs> GraphicsTarget<V> for Graphics<V> {
+    fn state(&self) -> &GraphicsState<V> {
+        &self.state
+    }
+
+    fn state_mut(&mut self) -> &mut GraphicsState<V> {
+        &mut self.state
     }
 }
 
