@@ -1,6 +1,10 @@
+use glutin::{
+    event::{Event, VirtualKeyCode, WindowEvent},
+    window::Window,
+};
 use spitfire_draw::{
     context::DrawContext,
-    pixels::{Pixels, PixelsAccessRgba},
+    pixels::{Pixels, PixelsAccessRgba, blend_alpha, blend_linear_dodge, blend_screen},
     sprite::Sprite,
     utils::{Drawable, ShaderRef, Vertex},
 };
@@ -16,13 +20,21 @@ fn main() {
 }
 
 #[derive(Default)]
+enum Mode {
+    #[default]
+    Mandelbrot,
+    Blending,
+}
+
+#[derive(Default)]
 struct State {
     context: DrawContext,
     pixels: Option<Pixels>,
+    mode: Mode,
 }
 
 impl State {
-    fn redraw_pixels(width: usize, height: usize, mut pixels: PixelsAccessRgba) {
+    fn redraw_mandelbrot(width: usize, height: usize, mut pixels: PixelsAccessRgba) {
         for (index, pixel) in pixels.iter_mut().enumerate() {
             let x = index % width;
             let y = index / width;
@@ -30,6 +42,34 @@ impl State {
             let cy = (y as f64 / height as f64) * 2.0 - 1.0;
             let (r, g, b) = mandelbrot_smooth(cx, cy);
             *pixel = Rgba::new(r, g, b, 255);
+        }
+    }
+
+    fn redraw_blending(width: usize, height: usize, mut pixels: PixelsAccessRgba) {
+        pixels.fill(Rgba::new(0, 0, 0, 255));
+
+        let mut pixels = pixels.blend(blend_alpha);
+        let color = Rgba::new(0.0, 0.0, 1.0, 0.5);
+        for y in 50..(height - 50) {
+            for x in 50..(width - 50) {
+                pixels.blend([x, y], color);
+            }
+        }
+
+        let mut pixels = pixels.into_inner().blend(blend_screen);
+        let color = Rgba::new(0.0, 1.0, 0.0, 0.5);
+        for y in 100..(height - 100) {
+            for x in 100..(width - 100) {
+                pixels.blend([x, y], color);
+            }
+        }
+
+        let mut pixels = pixels.into_inner().blend(blend_linear_dodge);
+        let color = Rgba::new(1.0, 0.0, 0.0, 0.5);
+        for y in 150..(height - 150) {
+            for x in 150..(width - 150) {
+                pixels.blend([x, y], color);
+            }
         }
     }
 }
@@ -57,7 +97,10 @@ impl AppState<Vertex> for State {
         {
             self.pixels = Some(Pixels::simple(width as u32, height as u32, graphics).unwrap());
             let pixels = self.pixels.as_mut().unwrap();
-            Self::redraw_pixels(width, height, pixels.access_rgba());
+            match self.mode {
+                Mode::Mandelbrot => Self::redraw_mandelbrot(width, height, pixels.access_rgba()),
+                Mode::Blending => Self::redraw_blending(width, height, pixels.access_rgba()),
+            }
             pixels.commit();
         }
 
@@ -75,6 +118,32 @@ impl AppState<Vertex> for State {
         .draw(&mut self.context, graphics);
 
         self.context.end_frame();
+    }
+
+    fn on_event(&mut self, event: Event<()>, _: &mut Window) -> bool {
+        if let Event::WindowEvent {
+            event: WindowEvent::KeyboardInput { input, .. },
+            ..
+        } = event
+        {
+            if let Some(key) = input.virtual_keycode {
+                match key {
+                    VirtualKeyCode::Escape => {
+                        return false;
+                    }
+                    VirtualKeyCode::Key1 => {
+                        self.mode = Mode::Mandelbrot;
+                        self.pixels = None;
+                    }
+                    VirtualKeyCode::Key2 => {
+                        self.mode = Mode::Blending;
+                        self.pixels = None;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        true
     }
 }
 
