@@ -57,6 +57,10 @@ impl Player {
                     move_left.clone(),
                 )
                 .action(
+                    VirtualAction::GamepadButton(GamepadButton::DPadLeft),
+                    move_left.clone(),
+                )
+                .action(
                     VirtualAction::KeyButton(VirtualKeyCode::Right),
                     move_right.clone(),
                 )
@@ -65,10 +69,18 @@ impl Player {
                     move_right.clone(),
                 )
                 .action(
+                    VirtualAction::GamepadButton(GamepadButton::DPadRight),
+                    move_right.clone(),
+                )
+                .action(
                     VirtualAction::KeyButton(VirtualKeyCode::Up),
                     move_up.clone(),
                 )
                 .action(VirtualAction::KeyButton(VirtualKeyCode::W), move_up.clone())
+                .action(
+                    VirtualAction::GamepadButton(GamepadButton::DPadUp),
+                    move_up.clone(),
+                )
                 .action(
                     VirtualAction::KeyButton(VirtualKeyCode::Down),
                     move_down.clone(),
@@ -78,7 +90,15 @@ impl Player {
                     move_down.clone(),
                 )
                 .action(
+                    VirtualAction::GamepadButton(GamepadButton::DPadDown),
+                    move_down.clone(),
+                )
+                .action(
                     VirtualAction::KeyButton(VirtualKeyCode::Q),
+                    rotate_left.clone(),
+                )
+                .action(
+                    VirtualAction::GamepadButton(GamepadButton::West),
                     rotate_left.clone(),
                 )
                 .action(
@@ -86,7 +106,15 @@ impl Player {
                     rotate_right.clone(),
                 )
                 .action(
+                    VirtualAction::GamepadButton(GamepadButton::East),
+                    rotate_right.clone(),
+                )
+                .action(
                     VirtualAction::KeyButton(VirtualKeyCode::Space),
+                    input_camera_attached_to_ferris.clone(),
+                )
+                .action(
+                    VirtualAction::GamepadButton(GamepadButton::North),
                     input_camera_attached_to_ferris.clone(),
                 ),
         );
@@ -159,7 +187,7 @@ impl State {
         // input falls down that stack, and that input can be consumed either
         // entirely blocking next mappings from receiving it, or blocking
         // only those inputs that gets hit at some mappings level.
-        let mut input = InputContext::default();
+        let mut input = InputContext::default().with_gamepads();
         let input_exit = InputActionRef::default();
         input.push_mapping(InputMapping::default().action(
             VirtualAction::KeyButton(VirtualKeyCode::Escape),

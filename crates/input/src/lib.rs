@@ -1,5 +1,6 @@
+use gilrs::{Event as GamepadEvent, EventType as GamepadEventType, Gilrs};
 #[cfg(not(target_arch = "wasm32"))]
-use glutin::event::{ElementState, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
+use glutin::event::{ElementState, MouseScrollDelta, WindowEvent};
 use std::{
     borrow::Cow,
     cmp::Ordering,
@@ -8,7 +9,13 @@ use std::{
 };
 use typid::ID;
 #[cfg(target_arch = "wasm32")]
-use winit::event::{ElementState, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
+
+pub use gilrs::{Axis as GamepadAxis, Button as GamepadButton, GamepadId};
+#[cfg(not(target_arch = "wasm32"))]
+pub use glutin::event::{MouseButton, VirtualKeyCode};
+#[cfg(target_arch = "wasm32")]
+pub use winit::event::{MouseButton, VirtualKeyCode};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum InputConsume {
@@ -23,6 +30,8 @@ pub enum VirtualAction {
     KeyButton(VirtualKeyCode),
     MouseButton(MouseButton),
     Axis(u32),
+    GamepadButton(GamepadButton),
+    GamepadAxis(GamepadAxis),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,6 +43,8 @@ pub enum VirtualAxis {
     MouseWheelY,
     MouseButton(MouseButton),
     Axis(u32),
+    GamepadButton(GamepadButton),
+    GamepadAxis(GamepadAxis),
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -111,9 +122,9 @@ impl InputAxis {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct InputRef<T: Default + Clone>(Arc<RwLock<T>>);
+pub struct InputRef<T: Default>(Arc<RwLock<T>>);
 
-impl<T: Default + Clone> InputRef<T> {
+impl<T: Default> InputRef<T> {
     pub fn new(data: T) -> Self {
         Self(Arc::new(RwLock::new(data)))
     }
@@ -126,7 +137,10 @@ impl<T: Default + Clone> InputRef<T> {
         self.0.write().ok()
     }
 
-    pub fn get(&self) -> T {
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
         self.read().map(|value| value.clone()).unwrap_or_default()
     }
 
@@ -189,7 +203,7 @@ impl From<InputAxisRef> for InputActionOrAxisRef {
 }
 
 pub struct InputCombinator<T> {
-    mapper: Box<dyn Fn() -> T>,
+    mapper: Box<dyn Fn() -> T + Send + Sync>,
 }
 
 impl<T: Default> Default for InputCombinator<T> {
@@ -199,7 +213,7 @@ impl<T: Default> Default for InputCombinator<T> {
 }
 
 impl<T> InputCombinator<T> {
-    pub fn new(mapper: impl Fn() -> T + 'static) -> Self {
+    pub fn new(mapper: impl Fn() -> T + Send + Sync + 'static) -> Self {
         Self {
             mapper: Box::new(mapper),
         }
@@ -264,18 +278,13 @@ pub struct ArrayInputCombinator<const N: usize>(InputCombinator<[f32; N]>);
 
 impl<const N: usize> Default for ArrayInputCombinator<N> {
     fn default() -> Self {
-        Self(InputCombinator::new(|| {
-            std::array::from_fn(|_| Default::default())
-        }))
+        Self(InputCombinator::new(|| [0.0; N]))
     }
 }
 
 impl<const N: usize> ArrayInputCombinator<N> {
     pub fn new(inputs: [impl Into<InputActionOrAxisRef>; N]) -> Self {
-        let mut items = std::array::from_fn::<InputActionOrAxisRef, N, _>(|_| Default::default());
-        for (index, input) in inputs.into_iter().enumerate() {
-            items[index] = input.into();
-        }
+        let items: [InputActionOrAxisRef; N] = inputs.map(|input| input.into());
         Self(InputCombinator::new(move || {
             std::array::from_fn(|index| items[index].get_scalar(0.0, 1.0))
         }))
@@ -312,6 +321,7 @@ pub struct InputMapping {
     pub consume: InputConsume,
     pub layer: isize,
     pub name: Cow<'static, str>,
+    pub gamepad: Option<GamepadId>,
 }
 
 impl InputMapping {
@@ -339,6 +349,11 @@ impl InputMapping {
         self.name = value.into();
         self
     }
+
+    pub fn gamepad(mut self, gamepad: GamepadId) -> Self {
+        self.gamepad = Some(gamepad);
+        self
+    }
 }
 
 impl From<InputMapping> for InputMappingRef {
@@ -347,12 +362,13 @@ impl From<InputMapping> for InputMappingRef {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct InputContext {
     pub mouse_wheel_line_scale: f32,
     /// [(id, mapping)]
     mappings_stack: Vec<(ID<InputMapping>, InputMappingRef)>,
     characters: InputCharactersRef,
+    gamepads: Option<Gilrs>,
 }
 
 impl Default for InputContext {
@@ -361,6 +377,18 @@ impl Default for InputContext {
             mouse_wheel_line_scale: Self::default_mouse_wheel_line_scale(),
             mappings_stack: Default::default(),
             characters: Default::default(),
+            gamepads: None,
+        }
+    }
+}
+
+impl Clone for InputContext {
+    fn clone(&self) -> Self {
+        Self {
+            mouse_wheel_line_scale: self.mouse_wheel_line_scale,
+            mappings_stack: self.mappings_stack.clone(),
+            characters: self.characters.clone(),
+            gamepads: None,
         }
     }
 }
@@ -368,6 +396,24 @@ impl Default for InputContext {
 impl InputContext {
     fn default_mouse_wheel_line_scale() -> f32 {
         10.0
+    }
+
+    pub fn with_gamepads(mut self) -> Self {
+        self.gamepads = Gilrs::new().ok();
+        self
+    }
+
+    pub fn with_gamepads_custom(mut self, gamepads: Gilrs) -> Self {
+        self.gamepads = Some(gamepads);
+        self
+    }
+
+    pub fn gamepads(&self) -> Option<&Gilrs> {
+        self.gamepads.as_ref()
+    }
+
+    pub fn gamepads_mut(&mut self) -> Option<&mut Gilrs> {
+        self.gamepads.as_mut()
     }
 
     pub fn push_mapping(&mut self, mapping: impl Into<InputMappingRef>) -> ID<InputMapping> {
@@ -420,6 +466,122 @@ impl InputContext {
     }
 
     pub fn maintain(&mut self) {
+        if let Some(gamepads) = self.gamepads.as_mut() {
+            while let Some(GamepadEvent { id, event, .. }) = gamepads.next_event() {
+                match event {
+                    GamepadEventType::ButtonPressed(info, ..) => {
+                        for (_, mapping) in self.mappings_stack.iter().rev() {
+                            if let Some(mapping) = mapping.read() {
+                                if !mapping.gamepad.map(|gamepad| gamepad == id).unwrap_or(true) {
+                                    continue;
+                                }
+                                let mut consume = mapping.consume == InputConsume::All;
+                                for (id, data) in &mapping.actions {
+                                    if let VirtualAction::GamepadButton(button) = id {
+                                        if *button == info {
+                                            if let Some(mut data) = data.write() {
+                                                *data = data.change(true);
+                                                if mapping.consume == InputConsume::Hit {
+                                                    consume = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                for (id, data) in &mapping.axes {
+                                    if let VirtualAxis::GamepadButton(button) = id {
+                                        if *button == info {
+                                            if let Some(mut data) = data.write() {
+                                                data.0 = 1.0;
+                                                if mapping.consume == InputConsume::Hit {
+                                                    consume = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if consume {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    GamepadEventType::ButtonReleased(info, ..) => {
+                        for (_, mapping) in self.mappings_stack.iter().rev() {
+                            if let Some(mapping) = mapping.read() {
+                                if !mapping.gamepad.map(|gamepad| gamepad == id).unwrap_or(true) {
+                                    continue;
+                                }
+                                let mut consume = mapping.consume == InputConsume::All;
+                                for (id, data) in &mapping.actions {
+                                    if let VirtualAction::GamepadButton(button) = id {
+                                        if *button == info {
+                                            if let Some(mut data) = data.write() {
+                                                *data = data.change(false);
+                                                if mapping.consume == InputConsume::Hit {
+                                                    consume = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                for (id, data) in &mapping.axes {
+                                    if let VirtualAxis::GamepadButton(button) = id {
+                                        if *button == info {
+                                            if let Some(mut data) = data.write() {
+                                                data.0 = 0.0;
+                                                if mapping.consume == InputConsume::Hit {
+                                                    consume = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if consume {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    GamepadEventType::AxisChanged(info, value, ..) => {
+                        for (_, mapping) in self.mappings_stack.iter().rev() {
+                            if let Some(mapping) = mapping.read() {
+                                let mut consume = mapping.consume == InputConsume::All;
+                                for (id, data) in &mapping.actions {
+                                    if let VirtualAction::GamepadAxis(axis) = id {
+                                        if *axis == info {
+                                            if let Some(mut data) = data.write() {
+                                                *data = data.change(value > 0.5);
+                                                if mapping.consume == InputConsume::Hit {
+                                                    consume = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                for (id, data) in &mapping.axes {
+                                    if let VirtualAxis::GamepadAxis(axis) = id {
+                                        if *axis == info {
+                                            if let Some(mut data) = data.write() {
+                                                data.0 = value;
+                                                if mapping.consume == InputConsume::Hit {
+                                                    consume = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if consume {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            gamepads.inc();
+        }
         for (_, mapping) in &mut self.mappings_stack {
             if let Some(mut mapping) = mapping.write() {
                 for action in mapping.actions.values_mut() {
@@ -633,7 +795,7 @@ impl InputContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::{InputContext, InputMapping};
+    use super::*;
 
     #[test]
     fn test_stack() {
