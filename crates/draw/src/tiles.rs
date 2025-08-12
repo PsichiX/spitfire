@@ -400,10 +400,10 @@ impl TileMap {
         (region.y..(region.y + region.h)).flat_map(move |y| {
             (region.x..(region.x + region.w)).filter_map(move |x| {
                 let location = Vec2 { x, y };
-                if let Some(id) = self.get(location) {
-                    if self.is_id_valid(id) {
-                        return Some(TileInstance { id, location });
-                    }
+                if let Some(id) = self.get(location)
+                    && self.is_id_valid(id)
+                {
+                    return Some(TileInstance { id, location });
                 }
                 None
             })

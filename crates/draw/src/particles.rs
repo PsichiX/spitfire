@@ -53,7 +53,10 @@ impl ParticleEmitter {
         self
     }
 
-    pub fn emit<I: IntoIterator<Item = ParticleInstance>>(&self, instances: I) -> ParticleDraw<I> {
+    pub fn emit<I: IntoIterator<Item = ParticleInstance>>(
+        &'_ self,
+        instances: I,
+    ) -> ParticleDraw<'_, I> {
         ParticleDraw {
             emitter: self,
             instances: RefCell::new(Some(instances)),

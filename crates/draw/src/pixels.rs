@@ -58,7 +58,7 @@ impl Pixels {
         self.texture.height() as usize
     }
 
-    pub fn access_bytes(&mut self) -> PixelsAccessBytes {
+    pub fn access_bytes(&'_ mut self) -> PixelsAccessBytes<'_> {
         PixelsAccessBytes {
             width: self.width(),
             height: self.height(),

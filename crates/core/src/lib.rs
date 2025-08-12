@@ -287,11 +287,11 @@ impl<V: Pod, B> VertexStream<V, B> {
     where
         B: PartialEq,
     {
-        if let Some(last) = self.batches.last_mut() {
-            if last.0 == data {
-                last.1.end = self.triangles.len();
-                return;
-            }
+        if let Some(last) = self.batches.last_mut()
+            && last.0 == data
+        {
+            last.1.end = self.triangles.len();
+            return;
         }
         self.batch(data);
     }
@@ -323,7 +323,13 @@ impl<V: Pod, B> VertexStream<V, B> {
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn drain(&mut self) -> (Drain<V>, Drain<Triangle>, Drain<(B, Range<usize>)>) {
+    pub fn drain(
+        &'_ mut self,
+    ) -> (
+        Drain<'_, V>,
+        Drain<'_, Triangle>,
+        Drain<'_, (B, Range<usize>)>,
+    ) {
         self.batch_end();
         (
             self.vertices.drain(..),

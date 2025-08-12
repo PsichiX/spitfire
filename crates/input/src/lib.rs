@@ -129,11 +129,11 @@ impl<T: Default> InputRef<T> {
         Self(Arc::new(RwLock::new(data)))
     }
 
-    pub fn read(&self) -> Option<RwLockReadGuard<T>> {
+    pub fn read(&'_ self) -> Option<RwLockReadGuard<'_, T>> {
         self.0.read().ok()
     }
 
-    pub fn write(&self) -> Option<RwLockWriteGuard<T>> {
+    pub fn write(&'_ self) -> Option<RwLockWriteGuard<'_, T>> {
         self.0.write().ok()
     }
 
@@ -450,7 +450,7 @@ impl InputContext {
             .map(|index| self.mappings_stack.remove(index).1)
     }
 
-    pub fn mapping(&self, id: ID<InputMapping>) -> Option<RwLockReadGuard<InputMapping>> {
+    pub fn mapping(&'_ self, id: ID<InputMapping>) -> Option<RwLockReadGuard<'_, InputMapping>> {
         self.mappings_stack
             .iter()
             .find(|(mid, _)| mid == &id)
@@ -466,6 +466,23 @@ impl InputContext {
     }
 
     pub fn maintain(&mut self) {
+        for (_, mapping) in &mut self.mappings_stack {
+            if let Some(mut mapping) = mapping.write() {
+                for action in mapping.actions.values_mut() {
+                    if let Some(mut action) = action.write() {
+                        *action = action.update();
+                    }
+                }
+                for (id, axis) in &mut mapping.axes {
+                    if let VirtualAxis::MouseWheelX | VirtualAxis::MouseWheelY = id
+                        && let Some(mut axis) = axis.write()
+                    {
+                        axis.0 = 0.0;
+                    }
+                }
+            }
+        }
+
         if let Some(gamepads) = self.gamepads.as_mut() {
             while let Some(GamepadEvent { id, event, .. }) = gamepads.next_event() {
                 match event {
@@ -477,26 +494,24 @@ impl InputContext {
                                 }
                                 let mut consume = mapping.consume == InputConsume::All;
                                 for (id, data) in &mapping.actions {
-                                    if let VirtualAction::GamepadButton(button) = id {
-                                        if *button == info {
-                                            if let Some(mut data) = data.write() {
-                                                *data = data.change(true);
-                                                if mapping.consume == InputConsume::Hit {
-                                                    consume = true;
-                                                }
-                                            }
+                                    if let VirtualAction::GamepadButton(button) = id
+                                        && *button == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        *data = data.change(true);
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
                                         }
                                     }
                                 }
                                 for (id, data) in &mapping.axes {
-                                    if let VirtualAxis::GamepadButton(button) = id {
-                                        if *button == info {
-                                            if let Some(mut data) = data.write() {
-                                                data.0 = 1.0;
-                                                if mapping.consume == InputConsume::Hit {
-                                                    consume = true;
-                                                }
-                                            }
+                                    if let VirtualAxis::GamepadButton(button) = id
+                                        && *button == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        data.0 = 1.0;
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
                                         }
                                     }
                                 }
@@ -514,26 +529,24 @@ impl InputContext {
                                 }
                                 let mut consume = mapping.consume == InputConsume::All;
                                 for (id, data) in &mapping.actions {
-                                    if let VirtualAction::GamepadButton(button) = id {
-                                        if *button == info {
-                                            if let Some(mut data) = data.write() {
-                                                *data = data.change(false);
-                                                if mapping.consume == InputConsume::Hit {
-                                                    consume = true;
-                                                }
-                                            }
+                                    if let VirtualAction::GamepadButton(button) = id
+                                        && *button == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        *data = data.change(false);
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
                                         }
                                     }
                                 }
                                 for (id, data) in &mapping.axes {
-                                    if let VirtualAxis::GamepadButton(button) = id {
-                                        if *button == info {
-                                            if let Some(mut data) = data.write() {
-                                                data.0 = 0.0;
-                                                if mapping.consume == InputConsume::Hit {
-                                                    consume = true;
-                                                }
-                                            }
+                                    if let VirtualAxis::GamepadButton(button) = id
+                                        && *button == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        data.0 = 0.0;
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
                                         }
                                     }
                                 }
@@ -548,26 +561,24 @@ impl InputContext {
                             if let Some(mapping) = mapping.read() {
                                 let mut consume = mapping.consume == InputConsume::All;
                                 for (id, data) in &mapping.actions {
-                                    if let VirtualAction::GamepadAxis(axis) = id {
-                                        if *axis == info {
-                                            if let Some(mut data) = data.write() {
-                                                *data = data.change(value > 0.5);
-                                                if mapping.consume == InputConsume::Hit {
-                                                    consume = true;
-                                                }
-                                            }
+                                    if let VirtualAction::GamepadAxis(axis) = id
+                                        && *axis == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        *data = data.change(value > 0.5);
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
                                         }
                                     }
                                 }
                                 for (id, data) in &mapping.axes {
-                                    if let VirtualAxis::GamepadAxis(axis) = id {
-                                        if *axis == info {
-                                            if let Some(mut data) = data.write() {
-                                                data.0 = value;
-                                                if mapping.consume == InputConsume::Hit {
-                                                    consume = true;
-                                                }
-                                            }
+                                    if let VirtualAxis::GamepadAxis(axis) = id
+                                        && *axis == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        data.0 = value;
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
                                         }
                                     }
                                 }
@@ -581,22 +592,6 @@ impl InputContext {
                 }
             }
             gamepads.inc();
-        }
-        for (_, mapping) in &mut self.mappings_stack {
-            if let Some(mut mapping) = mapping.write() {
-                for action in mapping.actions.values_mut() {
-                    if let Some(mut action) = action.write() {
-                        *action = action.update();
-                    }
-                }
-                for (id, axis) in &mut mapping.axes {
-                    if let VirtualAxis::MouseWheelX | VirtualAxis::MouseWheelY = id {
-                        if let Some(mut axis) = axis.write() {
-                            axis.0 = 0.0;
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -613,31 +608,28 @@ impl InputContext {
                         if let Some(mapping) = mapping.read() {
                             let mut consume = mapping.consume == InputConsume::All;
                             for (id, data) in &mapping.actions {
-                                if let VirtualAction::KeyButton(button) = id {
-                                    if *button == key {
-                                        if let Some(mut data) = data.write() {
-                                            *data =
-                                                data.change(input.state == ElementState::Pressed);
-                                            if mapping.consume == InputConsume::Hit {
-                                                consume = true;
-                                            }
-                                        }
+                                if let VirtualAction::KeyButton(button) = id
+                                    && *button == key
+                                    && let Some(mut data) = data.write()
+                                {
+                                    *data = data.change(input.state == ElementState::Pressed);
+                                    if mapping.consume == InputConsume::Hit {
+                                        consume = true;
                                     }
                                 }
                             }
                             for (id, data) in &mapping.axes {
-                                if let VirtualAxis::KeyButton(button) = id {
-                                    if *button == key {
-                                        if let Some(mut data) = data.write() {
-                                            data.0 = if input.state == ElementState::Pressed {
-                                                1.0
-                                            } else {
-                                                0.0
-                                            };
-                                            if mapping.consume == InputConsume::Hit {
-                                                consume = true;
-                                            }
-                                        }
+                                if let VirtualAxis::KeyButton(button) = id
+                                    && *button == key
+                                    && let Some(mut data) = data.write()
+                                {
+                                    data.0 = if input.state == ElementState::Pressed {
+                                        1.0
+                                    } else {
+                                        0.0
+                                    };
+                                    if mapping.consume == InputConsume::Hit {
+                                        consume = true;
                                     }
                                 }
                             }
@@ -721,30 +713,28 @@ impl InputContext {
                     if let Some(mapping) = mapping.read() {
                         let mut consume = mapping.consume == InputConsume::All;
                         for (id, data) in &mapping.actions {
-                            if let VirtualAction::MouseButton(btn) = id {
-                                if button == btn {
-                                    if let Some(mut data) = data.write() {
-                                        *data = data.change(*state == ElementState::Pressed);
-                                        if mapping.consume == InputConsume::Hit {
-                                            consume = true;
-                                        }
-                                    }
+                            if let VirtualAction::MouseButton(btn) = id
+                                && button == btn
+                                && let Some(mut data) = data.write()
+                            {
+                                *data = data.change(*state == ElementState::Pressed);
+                                if mapping.consume == InputConsume::Hit {
+                                    consume = true;
                                 }
                             }
                         }
                         for (id, data) in &mapping.axes {
-                            if let VirtualAxis::MouseButton(btn) = id {
-                                if button == btn {
-                                    if let Some(mut data) = data.write() {
-                                        data.0 = if *state == ElementState::Pressed {
-                                            1.0
-                                        } else {
-                                            0.0
-                                        };
-                                        if mapping.consume == InputConsume::Hit {
-                                            consume = true;
-                                        }
-                                    }
+                            if let VirtualAxis::MouseButton(btn) = id
+                                && button == btn
+                                && let Some(mut data) = data.write()
+                            {
+                                data.0 = if *state == ElementState::Pressed {
+                                    1.0
+                                } else {
+                                    0.0
+                                };
+                                if mapping.consume == InputConsume::Hit {
+                                    consume = true;
                                 }
                             }
                         }
@@ -759,26 +749,24 @@ impl InputContext {
                     if let Some(mapping) = mapping.read() {
                         let mut consume = mapping.consume == InputConsume::All;
                         for (id, data) in &mapping.actions {
-                            if let VirtualAction::Axis(index) = id {
-                                if axis == index {
-                                    if let Some(mut data) = data.write() {
-                                        *data = data.change(value.abs() > 0.5);
-                                        if mapping.consume == InputConsume::Hit {
-                                            consume = true;
-                                        }
-                                    }
+                            if let VirtualAction::Axis(index) = id
+                                && axis == index
+                                && let Some(mut data) = data.write()
+                            {
+                                *data = data.change(value.abs() > 0.5);
+                                if mapping.consume == InputConsume::Hit {
+                                    consume = true;
                                 }
                             }
                         }
                         for (id, data) in &mapping.axes {
-                            if let VirtualAxis::Axis(index) = id {
-                                if axis == index {
-                                    if let Some(mut data) = data.write() {
-                                        data.0 = *value as _;
-                                        if mapping.consume == InputConsume::Hit {
-                                            consume = true;
-                                        }
-                                    }
+                            if let VirtualAxis::Axis(index) = id
+                                && axis == index
+                                && let Some(mut data) = data.write()
+                            {
+                                data.0 = *value as _;
+                                if mapping.consume == InputConsume::Hit {
+                                    consume = true;
                                 }
                             }
                         }

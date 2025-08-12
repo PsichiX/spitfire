@@ -125,22 +125,21 @@ impl AppState<Vertex> for State {
             event: WindowEvent::KeyboardInput { input, .. },
             ..
         } = event
+            && let Some(key) = input.virtual_keycode
         {
-            if let Some(key) = input.virtual_keycode {
-                match key {
-                    VirtualKeyCode::Escape => {
-                        return false;
-                    }
-                    VirtualKeyCode::Key1 => {
-                        self.mode = Mode::Mandelbrot;
-                        self.pixels = None;
-                    }
-                    VirtualKeyCode::Key2 => {
-                        self.mode = Mode::Blending;
-                        self.pixels = None;
-                    }
-                    _ => {}
+            match key {
+                VirtualKeyCode::Escape => {
+                    return false;
                 }
+                VirtualKeyCode::Key1 => {
+                    self.mode = Mode::Mandelbrot;
+                    self.pixels = None;
+                }
+                VirtualKeyCode::Key2 => {
+                    self.mode = Mode::Blending;
+                    self.pixels = None;
+                }
+                _ => {}
             }
         }
         true

@@ -76,7 +76,7 @@ impl Default for Vertex3d {
 pub struct MaybeContext(Rc<RefCell<(Context, bool)>>);
 
 impl MaybeContext {
-    pub fn get(&self) -> Option<Ref<Context>> {
+    pub fn get(&'_ self) -> Option<Ref<'_, Context>> {
         let access = self.0.borrow();
         if access.1 {
             Some(Ref::map(access, |access| &access.0))
@@ -96,7 +96,7 @@ impl Drop for StrongContext {
 }
 
 impl StrongContext {
-    fn get(&self) -> Option<Ref<Context>> {
+    fn get(&'_ self) -> Option<Ref<'_, Context>> {
         self.0.get()
     }
 
@@ -181,7 +181,7 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         }
     }
 
-    pub fn context(&self) -> Option<Ref<Context>> {
+    pub fn context(&'_ self) -> Option<Ref<'_, Context>> {
         self.context.get()
     }
 

@@ -59,7 +59,10 @@ impl PrimitivesEmitter {
         self
     }
 
-    pub fn emit_lines<I: IntoIterator<Item = Vec2<f32>>>(&self, vertices: I) -> LinesDraw<I> {
+    pub fn emit_lines<I: IntoIterator<Item = Vec2<f32>>>(
+        &'_ self,
+        vertices: I,
+    ) -> LinesDraw<'_, I> {
         LinesDraw {
             emitter: self,
             vertices: RefCell::new(Some(vertices)),
@@ -77,9 +80,9 @@ impl PrimitivesEmitter {
     }
 
     pub fn emit_brush<I: IntoIterator<Item = (Vec2<f32>, f32, Rgba<f32>)>>(
-        &self,
+        &'_ self,
         vertices: I,
-    ) -> BrushDraw<I> {
+    ) -> BrushDraw<'_, I> {
         BrushDraw {
             emitter: self,
             vertices: RefCell::new(Some(vertices)),
@@ -94,9 +97,9 @@ impl PrimitivesEmitter {
     }
 
     pub fn emit_triangles<I: IntoIterator<Item = [Vertex; 3]>>(
-        &self,
+        &'_ self,
         vertices: I,
-    ) -> TrianglesDraw<I> {
+    ) -> TrianglesDraw<'_, I> {
         TrianglesDraw {
             emitter: self,
             vertices: RefCell::new(Some(vertices)),
@@ -105,9 +108,9 @@ impl PrimitivesEmitter {
     }
 
     pub fn emit_triangle_fan<I: IntoIterator<Item = Vertex>>(
-        &self,
+        &'_ self,
         vertices: I,
-    ) -> TriangleFanDraw<I> {
+    ) -> TriangleFanDraw<'_, I> {
         TriangleFanDraw {
             emitter: self,
             vertices: RefCell::new(Some(vertices)),
@@ -115,9 +118,9 @@ impl PrimitivesEmitter {
     }
 
     pub fn emit_triangle_strip<I: IntoIterator<Item = Vertex>>(
-        &self,
+        &'_ self,
         vertices: I,
-    ) -> TriangleStripDraw<I> {
+    ) -> TriangleStripDraw<'_, I> {
         TriangleStripDraw {
             emitter: self,
             vertices: RefCell::new(Some(vertices)),
@@ -125,11 +128,11 @@ impl PrimitivesEmitter {
     }
 
     pub fn emit_regular_polygon(
-        &self,
+        &'_ self,
         vertices: usize,
         position: Vec2<f32>,
         radius: f32,
-    ) -> RegularPolygonDraw {
+    ) -> RegularPolygonDraw<'_> {
         RegularPolygonDraw {
             emitter: self,
             vertices,
@@ -147,11 +150,11 @@ impl PrimitivesEmitter {
     }
 
     pub fn emit_circle(
-        &self,
+        &'_ self,
         position: Vec2<f32>,
         radius: f32,
         maximum_error: f32,
-    ) -> RegularPolygonDraw {
+    ) -> RegularPolygonDraw<'_> {
         RegularPolygonDraw {
             emitter: self,
             vertices: (PI / (1.0 - maximum_error / radius).acos()).ceil() as _,
