@@ -437,13 +437,13 @@ impl CameraScaling {
                 let target_aspect = viewport_size.x / viewport_size.y;
                 if (target_aspect >= source_aspect) != inside {
                     Vec2 {
-                        x: viewport_size.x * size.x / viewport_size.y,
+                        x: viewport_size.x * size.y / viewport_size.y,
                         y: size.y,
                     }
                 } else {
                     Vec2 {
                         x: size.x,
-                        y: viewport_size.y * size.y / viewport_size.x,
+                        y: viewport_size.y * size.x / viewport_size.x,
                     }
                 }
             }
