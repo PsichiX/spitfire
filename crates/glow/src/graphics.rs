@@ -704,6 +704,21 @@ impl Texture {
                 context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_WRAP_R, CLAMP_TO_EDGE as _);
                 context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MIN_FILTER, NEAREST as _);
                 context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, NEAREST as _);
+                // TODO: make fix in web_sys module of `glow` to fix depth and border args ordering.
+                #[cfg(target_arch = "wasm32")]
+                context.tex_image_3d(
+                    TEXTURE_2D_ARRAY,
+                    0,
+                    format.into_gl() as _,
+                    width as _,
+                    height as _,
+                    0,
+                    depth as _,
+                    format.into_gl(),
+                    UNSIGNED_BYTE,
+                    PixelUnpackData::Slice(data),
+                );
+                #[cfg(not(target_arch = "wasm32"))]
                 context.tex_image_3d(
                     TEXTURE_2D_ARRAY,
                     0,
