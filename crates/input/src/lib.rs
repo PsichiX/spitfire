@@ -1,6 +1,6 @@
 use gilrs::{Event as GamepadEvent, EventType as GamepadEventType, Gilrs};
 #[cfg(not(target_arch = "wasm32"))]
-use glutin::event::{ElementState, MouseScrollDelta, WindowEvent};
+use glutin::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
 use std::{
     borrow::Cow,
     cmp::Ordering,
@@ -9,7 +9,7 @@ use std::{
 };
 use typid::ID;
 #[cfg(target_arch = "wasm32")]
-use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
 
 pub use gilrs::{Axis as GamepadAxis, Button as GamepadButton, GamepadId};
 #[cfg(not(target_arch = "wasm32"))]
@@ -32,6 +32,7 @@ pub enum VirtualAction {
     Axis(u32),
     GamepadButton(GamepadButton),
     GamepadAxis(GamepadAxis),
+    Touch,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -45,6 +46,8 @@ pub enum VirtualAxis {
     Axis(u32),
     GamepadButton(GamepadButton),
     GamepadAxis(GamepadAxis),
+    TouchX,
+    TouchY,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -60,9 +63,7 @@ impl InputAction {
     pub fn change(self, hold: bool) -> Self {
         match (self, hold) {
             (Self::Idle, true) | (Self::Released, true) => Self::Pressed,
-            (Self::Pressed, true) => Self::Hold,
             (Self::Pressed, false) | (Self::Hold, false) => Self::Released,
-            (Self::Released, false) => Self::Idle,
             _ => self,
         }
     }
@@ -365,19 +366,26 @@ impl From<InputMapping> for InputMappingRef {
 #[derive(Debug)]
 pub struct InputContext {
     pub mouse_wheel_line_scale: f32,
+    /// [left, top, right, bottom]
+    pub touch_area_margin: [f64; 4],
     /// [(id, mapping)]
     mappings_stack: Vec<(ID<InputMapping>, InputMappingRef)>,
     characters: InputCharactersRef,
     gamepads: Option<Gilrs>,
+    active_touch: Option<u64>,
+    window_size: [f64; 2],
 }
 
 impl Default for InputContext {
     fn default() -> Self {
         Self {
             mouse_wheel_line_scale: Self::default_mouse_wheel_line_scale(),
+            touch_area_margin: Self::default_touch_area_margin(),
             mappings_stack: Default::default(),
             characters: Default::default(),
             gamepads: None,
+            active_touch: None,
+            window_size: Default::default(),
         }
     }
 }
@@ -386,9 +394,12 @@ impl Clone for InputContext {
     fn clone(&self) -> Self {
         Self {
             mouse_wheel_line_scale: self.mouse_wheel_line_scale,
+            touch_area_margin: self.touch_area_margin,
             mappings_stack: self.mappings_stack.clone(),
             characters: self.characters.clone(),
             gamepads: None,
+            active_touch: self.active_touch,
+            window_size: self.window_size,
         }
     }
 }
@@ -396,6 +407,10 @@ impl Clone for InputContext {
 impl InputContext {
     fn default_mouse_wheel_line_scale() -> f32 {
         10.0
+    }
+
+    fn default_touch_area_margin() -> [f64; 4] {
+        [0.0, 0.0, 0.0, 0.0]
     }
 
     pub fn with_gamepads(mut self) -> Self {
@@ -597,6 +612,12 @@ impl InputContext {
 
     pub fn on_event(&mut self, event: &WindowEvent) {
         match event {
+            WindowEvent::Resized(size) => {
+                self.window_size = [size.width as _, size.height as _];
+            }
+            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                self.window_size = [new_inner_size.width as _, new_inner_size.height as _];
+            }
             WindowEvent::ReceivedCharacter(character) => {
                 if let Some(mut characters) = self.characters.write() {
                     characters.characters.push(*character);
@@ -773,6 +794,66 @@ impl InputContext {
                         if consume {
                             break;
                         }
+                    }
+                }
+            }
+            WindowEvent::Touch(touch) => {
+                if matches!(touch.phase, TouchPhase::Started | TouchPhase::Moved)
+                    && self.active_touch.is_none()
+                    && touch.location.x >= self.touch_area_margin[0]
+                    && touch.location.y >= self.touch_area_margin[1]
+                    && touch.location.x < self.window_size[0] - self.touch_area_margin[2]
+                    && touch.location.y < self.window_size[1] - self.touch_area_margin[3]
+                {
+                    self.active_touch = Some(touch.id);
+                }
+                if let Some(active_touch) = self.active_touch
+                    && touch.id == active_touch
+                {
+                    for (_, mapping) in self.mappings_stack.iter().rev() {
+                        if let Some(mapping) = mapping.read() {
+                            let mut consume = mapping.consume == InputConsume::All;
+                            for (id, data) in &mapping.actions {
+                                if let VirtualAction::Touch = id
+                                    && let Some(mut data) = data.write()
+                                {
+                                    *data = data.change(matches!(
+                                        touch.phase,
+                                        TouchPhase::Started | TouchPhase::Moved
+                                    ));
+                                    if mapping.consume == InputConsume::Hit {
+                                        consume = true;
+                                    }
+                                }
+                            }
+                            for (id, data) in &mapping.axes {
+                                match id {
+                                    VirtualAxis::TouchX => {
+                                        if let Some(mut data) = data.write() {
+                                            data.0 = touch.location.x as _;
+                                            if mapping.consume == InputConsume::Hit {
+                                                consume = true;
+                                            }
+                                        }
+                                    }
+                                    VirtualAxis::TouchY => {
+                                        if let Some(mut data) = data.write() {
+                                            data.0 = touch.location.y as _;
+                                            if mapping.consume == InputConsume::Hit {
+                                                consume = true;
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            if consume {
+                                break;
+                            }
+                        }
+                    }
+                    if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                        self.active_touch = None;
                     }
                 }
             }

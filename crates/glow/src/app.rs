@@ -353,6 +353,12 @@ impl<V: GlowVertexAttribs> App<V> {
                                 control.height = physical_size.height;
                                 control.minimized = control.width == 0 || control.height == 0;
                             }
+                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                                context.resize(**new_inner_size);
+                                control.width = new_inner_size.width;
+                                control.height = new_inner_size.height;
+                                control.minimized = control.width == 0 || control.height == 0;
+                            }
                             WindowEvent::CloseRequested => {
                                 running = false;
                                 control.close_requested = true;

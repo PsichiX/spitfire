@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-gui"
-version = "0.36.5"
+version = "0.36.6"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "GUI module for Spitfire toolset"
