@@ -1,6 +1,6 @@
 [package]
 name = "spitfire"
-version = "0.36.6"
+version = "0.36.7"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Spitfire toolset"
@@ -32,7 +32,7 @@ spitfire-fontdue = { path = "../fontdue" }
 spitfire-draw = { path = "../draw" }
 spitfire-input = { path = "../input" }
 spitfire-gui = { path = "../gui" }
-png = "0.17"
+png = "0.18"
 bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.9"
 vek = "0.17"
@@ -40,4 +40,4 @@ glutin = "0.28"
 raui-core = "0.70"
 raui-immediate = "0.70"
 raui-immediate-widgets = "0.70"
-rand = "0.8"
+rand = "0.9"

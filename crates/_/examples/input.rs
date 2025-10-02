@@ -13,7 +13,7 @@ use spitfire_glow::{
     renderer::{GlowBlending, GlowTextureFormat},
 };
 use spitfire_input::*;
-use std::{fs::File, path::Path, time::Instant};
+use std::{fs::File, io::BufReader, path::Path, time::Instant};
 use vek::{Quaternion, Rgba, Vec2};
 
 fn main() {
@@ -281,9 +281,9 @@ impl AppState<Vertex> for State {
 
 fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>) -> Texture {
     let file = File::open(path).unwrap();
-    let decoder = png::Decoder::new(file);
+    let decoder = png::Decoder::new(BufReader::new(file));
     let mut reader = decoder.read_info().unwrap();
-    let mut buf = vec![0; reader.output_buffer_size()];
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let info = reader.next_frame(&mut buf).unwrap();
     let bytes = &buf[..info.buffer_size()];
     graphics

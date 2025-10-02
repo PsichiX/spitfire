@@ -9,7 +9,7 @@ build:
     cargo build --examples
 
 build-wasm:
-    cargo build --all --all-features --target wasm32-unknown-unknown
+    RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo build --all --all-features --target wasm32-unknown-unknown
 
 test:
     cargo test --all --all-features

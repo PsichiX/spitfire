@@ -15,7 +15,7 @@ use spitfire_glow::{
     graphics::{CameraScaling, Graphics, Shader, Texture},
     renderer::{GlowBlending, GlowTextureFiltering, GlowTextureFormat},
 };
-use std::{fs::File, ops::Range, path::Path, time::Instant};
+use std::{fs::File, io::BufReader, ops::Range, path::Path, time::Instant};
 use vek::{Rgba, Transform, Vec2};
 
 const DELTA_TIME: f32 = 1.0 / 60.0;
@@ -47,7 +47,9 @@ impl Default for State {
             context: Default::default(),
             tilemap: TileMap::with_buffer(
                 [6, 6].into(),
-                (0..36).map(|_| rand::random::<usize>() % 11).collect(),
+                (0..36)
+                    .map(|_| rand::random::<u64>() as usize % 11)
+                    .collect(),
             )
             .unwrap(),
             tileset: TileSet::single(SpriteTexture {
@@ -262,10 +264,10 @@ impl ParticleData {
         position: Vec2<f32>,
         color: Rgba<f32>,
     ) -> Self {
-        let lifetime = rand::thread_rng().gen_range(lifetime);
-        let speed = rand::thread_rng().gen_range(speed);
-        let size = rand::thread_rng().gen_range(size);
-        let angle = rand::thread_rng().gen_range(0.0_f32..360.0).to_radians();
+        let lifetime = rand::rng().random_range(lifetime);
+        let speed = rand::rng().random_range(speed);
+        let size = rand::rng().random_range(size);
+        let angle = rand::rng().random_range(0.0_f32..360.0).to_radians();
         Self {
             size,
             position,
@@ -310,9 +312,9 @@ impl ParticleSystemProcessor<ParticleData, ()> for ParticlesProcessor {
 // drawing module, so make sure you bring your own texture loader.
 fn load_texture(graphics: &Graphics<Vertex>, path: impl AsRef<Path>, pages: u32) -> Texture {
     let file = File::open(path).unwrap();
-    let decoder = png::Decoder::new(file);
+    let decoder = png::Decoder::new(BufReader::new(file));
     let mut reader = decoder.read_info().unwrap();
-    let mut buf = vec![0; reader.output_buffer_size()];
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let info = reader.next_frame(&mut buf).unwrap();
     let bytes = &buf[..info.buffer_size()];
     graphics

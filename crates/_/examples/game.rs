@@ -33,7 +33,7 @@ use spitfire_glow::{
 };
 use spitfire_gui::{context::GuiContext, interactions::GuiInteractionsInputs};
 use spitfire_input::*;
-use std::{borrow::Cow, cmp::Ordering, fs::File, path::Path};
+use std::{borrow::Cow, cmp::Ordering, fs::File, io::BufReader, path::Path};
 
 fn main() {
     App::<Vertex>::default().run(State::default());
@@ -166,9 +166,9 @@ impl State {
         path: impl AsRef<Path>,
     ) {
         let file = File::open(path).unwrap();
-        let decoder = png::Decoder::new(file);
+        let decoder = png::Decoder::new(BufReader::new(file));
         let mut reader = decoder.read_info().unwrap();
-        let mut buf = vec![0; reader.output_buffer_size()];
+        let mut buf = vec![0; reader.output_buffer_size().unwrap()];
         let info = reader.next_frame(&mut buf).unwrap();
         let bytes = &buf[..info.buffer_size()];
         self.draw.textures.insert(
@@ -193,7 +193,7 @@ impl State {
     }
 
     fn perform_turn(&mut self, element: Element) {
-        let enemy = random::<usize>().into();
+        let enemy = (random::<u64>() as usize).into();
         self.game_state = GameState::TurnResult {
             player: element,
             enemy,
