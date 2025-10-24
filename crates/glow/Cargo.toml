@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-glow"
-version = "0.36.7"
+version = "0.36.8"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "GLOW renderer module for Spitfire toolset"

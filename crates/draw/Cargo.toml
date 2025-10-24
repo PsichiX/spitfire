@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-draw"
-version = "0.36.7"
+version = "0.36.8"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Drawing helper module for Spitfire toolset"
@@ -9,6 +9,9 @@ homepage = "https://github.com/PsichiX/spitfire"
 repository = "https://github.com/PsichiX/spitfire"
 documentation = "https://docs.rs/spitfire-draw"
 readme = "../../README.md"
+
+[features]
+debug_automatic_glGetError = ["spitfire-glow/debug_automatic_glGetError"]
 
 [dependencies]
 spitfire-core = { version = "0.36", path = "../core" }

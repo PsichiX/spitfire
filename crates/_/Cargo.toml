@@ -1,6 +1,6 @@
 [package]
 name = "spitfire"
-version = "0.36.7"
+version = "0.36.8"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Spitfire toolset"
@@ -16,6 +16,11 @@ fontdue = ["spitfire-fontdue"]
 draw = ["spitfire-draw"]
 input = ["spitfire-input"]
 gui = ["spitfire-gui"]
+debug_automatic_glGetError = [
+    "spitfire-glow/debug_automatic_glGetError",
+    "spitfire-draw/debug_automatic_glGetError",
+    "spitfire-gui/debug_automatic_glGetError",
+]
 
 [dependencies]
 spitfire-core = { version = "0.36", path = "../core" }
