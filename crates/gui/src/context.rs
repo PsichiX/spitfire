@@ -27,7 +27,7 @@ pub struct GuiContext {
     pub coords_map_scaling: CoordsMappingScaling,
     pub texture_filtering: GlowTextureFiltering,
     pub interactions: GuiInteractionsEngine,
-    application: Application,
+    pub application: Application,
     text_renderer: TextRenderer<Color>,
     immediate: ImmediateContext,
     timer: Instant,
