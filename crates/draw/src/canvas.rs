@@ -60,6 +60,15 @@ impl Canvas {
     pub fn match_to_screen(&mut self, graphics: &Graphics<Vertex>) -> Result<(), String> {
         let width = graphics.state.main_camera.screen_size.x as _;
         let height = graphics.state.main_camera.screen_size.y as _;
+        self.match_to_size(graphics, width, height)
+    }
+
+    pub fn match_to_size(
+        &mut self,
+        graphics: &Graphics<Vertex>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
         if self.surface.width() != width || self.surface.height() != height {
             self.surface = graphics.surface(
                 self.surface
