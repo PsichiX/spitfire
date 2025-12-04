@@ -177,6 +177,7 @@ struct State {
     tick: Instant,
     player: Player,
     input_exit: InputActionRef,
+    input_pointer: ArrayInputCombinator<2>,
 }
 
 impl State {
@@ -189,10 +190,20 @@ impl State {
         // only those inputs that gets hit at some mappings level.
         let mut input = InputContext::default().with_gamepads();
         let input_exit = InputActionRef::default();
-        input.push_mapping(InputMapping::default().action(
-            VirtualAction::KeyButton(VirtualKeyCode::Escape),
-            input_exit.clone(),
-        ));
+        let input_pointer_x = InputAxisRef::default();
+        let input_pointer_y = InputAxisRef::default();
+        let input_pointer =
+            ArrayInputCombinator::new([input_pointer_x.clone(), input_pointer_y.clone()]);
+
+        input.push_mapping(
+            InputMapping::default()
+                .action(
+                    VirtualAction::KeyButton(VirtualKeyCode::Escape),
+                    input_exit.clone(),
+                )
+                .axis(VirtualAxis::MousePositionX, input_pointer_x)
+                .axis(VirtualAxis::MousePositionY, input_pointer_y),
+        );
 
         let player = Player::new(TextureRef::name("ferris"), 10.0, &mut input);
 
@@ -202,6 +213,7 @@ impl State {
             tick: Instant::now(),
             player,
             input_exit,
+            input_pointer,
         }
     }
 
@@ -218,6 +230,19 @@ impl State {
             .draw(&mut self.draw, graphics);
 
         self.player.draw(&mut self.draw, graphics, ticked);
+
+        Sprite::default()
+            .shader(ShaderRef::name("color"))
+            .position(
+                graphics
+                    .state
+                    .main_camera
+                    .screen_to_world_point(self.input_pointer.get().into()),
+            )
+            .size(20.0.into())
+            .pivot(0.5.into())
+            .tint(Rgba::yellow())
+            .draw(&mut self.draw, graphics);
     }
 }
 

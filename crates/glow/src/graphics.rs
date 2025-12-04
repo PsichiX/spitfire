@@ -530,6 +530,58 @@ impl Camera {
             h: yt - yf,
         }
     }
+
+    pub fn view_to_screen_point(&self, position: Vec2<f32>) -> Vec2<f32> {
+        self.screen_matrix().inverted().mul_point(position)
+    }
+
+    pub fn screen_to_view_point(&self, position: Vec2<f32>) -> Vec2<f32> {
+        self.screen_matrix().mul_point(position)
+    }
+
+    pub fn view_to_world_point(&self, position: Vec2<f32>) -> Vec2<f32> {
+        self.world_matrix().inverted().mul_point(position)
+    }
+
+    pub fn world_to_view_point(&self, position: Vec2<f32>) -> Vec2<f32> {
+        self.world_matrix().mul_point(position)
+    }
+
+    pub fn screen_to_world_point(&self, position: Vec2<f32>) -> Vec2<f32> {
+        let position = self.screen_to_view_point(position);
+        self.view_to_world_point(position)
+    }
+
+    pub fn world_to_screen_point(&self, position: Vec2<f32>) -> Vec2<f32> {
+        let position = self.world_to_view_point(position);
+        self.view_to_screen_point(position)
+    }
+
+    pub fn view_to_screen_direction(&self, direction: Vec2<f32>) -> Vec2<f32> {
+        self.screen_matrix().inverted().mul_direction(direction)
+    }
+
+    pub fn screen_to_view_direction(&self, direction: Vec2<f32>) -> Vec2<f32> {
+        self.screen_matrix().mul_direction(direction)
+    }
+
+    pub fn view_to_world_direction(&self, direction: Vec2<f32>) -> Vec2<f32> {
+        self.world_matrix().inverted().mul_direction(direction)
+    }
+
+    pub fn world_to_view_direction(&self, direction: Vec2<f32>) -> Vec2<f32> {
+        self.world_matrix().mul_direction(direction)
+    }
+
+    pub fn screen_to_world_direction(&self, direction: Vec2<f32>) -> Vec2<f32> {
+        let direction = self.screen_to_view_direction(direction);
+        self.view_to_world_direction(direction)
+    }
+
+    pub fn world_to_screen_direction(&self, direction: Vec2<f32>) -> Vec2<f32> {
+        let direction = self.world_to_view_direction(direction);
+        self.view_to_screen_direction(direction)
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
