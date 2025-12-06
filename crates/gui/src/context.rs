@@ -1,18 +1,24 @@
 use crate::{interactions::GuiInteractionsEngine, renderer::GuiRenderer};
+use fontdue::layout::{HorizontalAlign, VerticalAlign};
 #[cfg(target_arch = "wasm32")]
 use instant::Instant;
 use raui_core::{
     application::Application,
-    layout::{CoordsMapping, CoordsMappingScaling, default_layout_engine::DefaultLayoutEngine},
+    layout::{
+        CoordsMapping, CoordsMappingScaling,
+        default_layout_engine::{DefaultLayoutEngine, TextMeasurementEngine},
+    },
     make_widget,
     widget::{
         component::containers::content_box::content_box,
-        utils::{Color, Rect},
+        unit::text::{TextBox, TextBoxHorizontalAlign, TextBoxSizeValue, TextBoxVerticalAlign},
+        utils::{Color, Rect, Vec2},
     },
 };
 use raui_immediate::*;
 use spitfire_draw::{
     context::DrawContext,
+    text::Text,
     utils::{ShaderRef, Vertex},
 };
 use spitfire_fontdue::*;
@@ -86,7 +92,8 @@ impl GuiContext {
             self.coords_map_scaling,
         );
         if self.application.process() {
-            let mut layout_engine = DefaultLayoutEngine::<()>::default();
+            let mut layout_engine =
+                DefaultLayoutEngine::new(GuiTextMeasurementsEngine { context: draw });
             let _ = self.application.layout(&coords_mapping, &mut layout_engine);
         }
         self.interactions.maintain(&coords_mapping);
@@ -121,5 +128,61 @@ impl GuiContext {
                 )
                 .ok();
         }
+    }
+}
+
+pub struct GuiTextMeasurementsEngine<'a> {
+    context: &'a DrawContext,
+}
+
+impl TextMeasurementEngine for GuiTextMeasurementsEngine<'_> {
+    fn measure_text(
+        &self,
+        size_available: Vec2,
+        mapping: &CoordsMapping,
+        unit: &TextBox,
+    ) -> Option<Rect> {
+        let rect = mapping.virtual_to_real_rect(
+            Rect {
+                left: 0.0,
+                right: size_available.x,
+                top: 0.0,
+                bottom: size_available.y,
+            },
+            false,
+        );
+        let max_width = match unit.width {
+            TextBoxSizeValue::Content => None,
+            TextBoxSizeValue::Fill => Some(rect.width()),
+            TextBoxSizeValue::Exact(v) => Some(v * mapping.scale().x),
+        };
+        let max_height = match unit.height {
+            TextBoxSizeValue::Content => None,
+            TextBoxSizeValue::Fill => Some(rect.height()),
+            TextBoxSizeValue::Exact(v) => Some(v * mapping.scale().y),
+        };
+        let mut text = Text::default()
+            .font(unit.font.name.to_owned())
+            .size(unit.font.size * mapping.scalar_scale(false))
+            .text(unit.text.to_owned())
+            .horizontal_align(match unit.horizontal_align {
+                TextBoxHorizontalAlign::Left => HorizontalAlign::Left,
+                TextBoxHorizontalAlign::Center => HorizontalAlign::Center,
+                TextBoxHorizontalAlign::Right => HorizontalAlign::Right,
+            })
+            .vertical_align(match unit.vertical_align {
+                TextBoxVerticalAlign::Top => VerticalAlign::Top,
+                TextBoxVerticalAlign::Middle => VerticalAlign::Middle,
+                TextBoxVerticalAlign::Bottom => VerticalAlign::Bottom,
+            });
+        text.width = max_width;
+        text.height = max_height;
+        text.get_local_space_bounding_box(self.context, false)
+            .map(|rect| Rect {
+                left: rect.x,
+                top: rect.y,
+                right: rect.w,
+                bottom: rect.h,
+            })
     }
 }
