@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-input"
-version = "0.36.12"
+version = "0.36.13"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Input module for Spitfire toolset"

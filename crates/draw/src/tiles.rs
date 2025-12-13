@@ -172,11 +172,21 @@ impl TilesEmitter {
 pub struct TileInstance {
     pub id: usize,
     pub location: Vec2<usize>,
+    pub offset: Vec2<isize>,
 }
 
 impl TileInstance {
     pub fn new(id: usize, location: Vec2<usize>) -> Self {
-        Self { id, location }
+        Self {
+            id,
+            location,
+            offset: Default::default(),
+        }
+    }
+
+    pub fn offset(mut self, value: Vec2<isize>) -> Self {
+        self.offset = value;
+        self
     }
 }
 
@@ -242,8 +252,10 @@ impl<I: IntoIterator<Item = TileInstance>> Drawable for TilesDraw<'_, I> {
                 for instance in instances {
                     if let Some(tile) = self.tileset.mappings.get(&instance.id) {
                         let offset = Vec2 {
-                            x: (instance.location.x as isize + tile.offset.x) as f32,
-                            y: (instance.location.y as isize + tile.offset.y) as f32,
+                            x: (instance.location.x as isize + instance.offset.x + tile.offset.x)
+                                as f32,
+                            y: (instance.location.y as isize + instance.offset.y + tile.offset.y)
+                                as f32,
                         } * self.emitter.tile_size;
                         let size = Vec2 {
                             x: tile.size.x as f32,
@@ -376,6 +388,7 @@ impl TileMap {
                 Some(TileInstance {
                     id: *id,
                     location: self.location(index),
+                    offset: Default::default(),
                 })
             } else {
                 None
@@ -403,7 +416,11 @@ impl TileMap {
                 if let Some(id) = self.get(location)
                     && self.is_id_valid(id)
                 {
-                    return Some(TileInstance { id, location });
+                    return Some(TileInstance {
+                        id,
+                        location,
+                        offset: Default::default(),
+                    });
                 }
                 None
             })
