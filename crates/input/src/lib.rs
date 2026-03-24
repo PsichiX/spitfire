@@ -4,7 +4,7 @@ use glutin::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use typid::ID;
@@ -315,7 +315,7 @@ impl InputCharacters {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct InputMapping {
     pub actions: HashMap<VirtualAction, InputActionRef>,
     pub axes: HashMap<VirtualAxis, InputAxisRef>,
@@ -323,6 +323,7 @@ pub struct InputMapping {
     pub layer: isize,
     pub name: Cow<'static, str>,
     pub gamepad: Option<GamepadId>,
+    pub validator: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
 }
 
 impl InputMapping {
@@ -355,11 +356,29 @@ impl InputMapping {
         self.gamepad = Some(gamepad);
         self
     }
+
+    pub fn validator(mut self, validator: impl Fn() -> bool + Send + Sync + 'static) -> Self {
+        self.validator = Some(Arc::new(validator));
+        self
+    }
 }
 
 impl From<InputMapping> for InputMappingRef {
     fn from(value: InputMapping) -> Self {
         Self::new(value)
+    }
+}
+
+impl std::fmt::Debug for InputMapping {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InputMapping")
+            .field("actions", &self.actions.keys().collect::<Vec<_>>())
+            .field("axes", &self.axes.keys().collect::<Vec<_>>())
+            .field("consume", &self.consume)
+            .field("layer", &self.layer)
+            .field("name", &self.name)
+            .field("gamepad", &self.gamepad)
+            .finish_non_exhaustive()
     }
 }
 
@@ -498,11 +517,28 @@ impl InputContext {
             }
         }
 
+        let validity = self
+            .mappings_stack
+            .iter()
+            .filter(|(_, mapping)| {
+                mapping.read().is_some_and(|mapping| {
+                    mapping
+                        .validator
+                        .as_ref()
+                        .is_none_or(|validator| validator())
+                })
+            })
+            .map(|(id, _)| *id)
+            .collect::<HashSet<_>>();
+
         if let Some(gamepads) = self.gamepads.as_mut() {
             while let Some(GamepadEvent { id, event, .. }) = gamepads.next_event() {
                 match event {
                     GamepadEventType::ButtonPressed(info, ..) => {
-                        for (_, mapping) in self.mappings_stack.iter().rev() {
+                        for (mapping_id, mapping) in self.mappings_stack.iter().rev() {
+                            if !validity.contains(mapping_id) {
+                                continue;
+                            }
                             if let Some(mapping) = mapping.read() {
                                 if !mapping.gamepad.map(|gamepad| gamepad == id).unwrap_or(true) {
                                     continue;
@@ -537,7 +573,10 @@ impl InputContext {
                         }
                     }
                     GamepadEventType::ButtonReleased(info, ..) => {
-                        for (_, mapping) in self.mappings_stack.iter().rev() {
+                        for (mapping_id, mapping) in self.mappings_stack.iter().rev() {
+                            if !validity.contains(mapping_id) {
+                                continue;
+                            }
                             if let Some(mapping) = mapping.read() {
                                 if !mapping.gamepad.map(|gamepad| gamepad == id).unwrap_or(true) {
                                     continue;
@@ -572,7 +611,10 @@ impl InputContext {
                         }
                     }
                     GamepadEventType::AxisChanged(info, value, ..) => {
-                        for (_, mapping) in self.mappings_stack.iter().rev() {
+                        for (id, mapping) in self.mappings_stack.iter().rev() {
+                            if !validity.contains(id) {
+                                continue;
+                            }
                             if let Some(mapping) = mapping.read() {
                                 let mut consume = mapping.consume == InputConsume::All;
                                 for (id, data) in &mapping.actions {
@@ -611,6 +653,20 @@ impl InputContext {
     }
 
     pub fn on_event(&mut self, event: &WindowEvent) {
+        let validity = self
+            .mappings_stack
+            .iter()
+            .filter(|(_, mapping)| {
+                mapping.read().is_some_and(|mapping| {
+                    mapping
+                        .validator
+                        .as_ref()
+                        .is_none_or(|validator| validator())
+                })
+            })
+            .map(|(id, _)| *id)
+            .collect::<HashSet<_>>();
+
         match event {
             WindowEvent::Resized(size) => {
                 self.window_size = [size.width as _, size.height as _];
@@ -625,7 +681,10 @@ impl InputContext {
             }
             WindowEvent::KeyboardInput { input, .. } => {
                 if let Some(key) = input.virtual_keycode {
-                    for (_, mapping) in self.mappings_stack.iter().rev() {
+                    for (id, mapping) in self.mappings_stack.iter().rev() {
+                        if !validity.contains(id) {
+                            continue;
+                        }
                         if let Some(mapping) = mapping.read() {
                             let mut consume = mapping.consume == InputConsume::All;
                             for (id, data) in &mapping.actions {
@@ -662,7 +721,10 @@ impl InputContext {
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                for (_, mapping) in self.mappings_stack.iter().rev() {
+                for (id, mapping) in self.mappings_stack.iter().rev() {
+                    if !validity.contains(id) {
+                        continue;
+                    }
                     if let Some(mapping) = mapping.read() {
                         let mut consume = mapping.consume == InputConsume::All;
                         for (id, data) in &mapping.axes {
@@ -693,7 +755,10 @@ impl InputContext {
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                for (_, mapping) in self.mappings_stack.iter().rev() {
+                for (id, mapping) in self.mappings_stack.iter().rev() {
+                    if !validity.contains(id) {
+                        continue;
+                    }
                     if let Some(mapping) = mapping.read() {
                         let mut consume = mapping.consume == InputConsume::All;
                         for (id, data) in &mapping.axes {
@@ -730,7 +795,10 @@ impl InputContext {
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                for (_, mapping) in self.mappings_stack.iter().rev() {
+                for (id, mapping) in self.mappings_stack.iter().rev() {
+                    if !validity.contains(id) {
+                        continue;
+                    }
                     if let Some(mapping) = mapping.read() {
                         let mut consume = mapping.consume == InputConsume::All;
                         for (id, data) in &mapping.actions {
@@ -766,7 +834,10 @@ impl InputContext {
                 }
             }
             WindowEvent::AxisMotion { axis, value, .. } => {
-                for (_, mapping) in self.mappings_stack.iter().rev() {
+                for (id, mapping) in self.mappings_stack.iter().rev() {
+                    if !validity.contains(id) {
+                        continue;
+                    }
                     if let Some(mapping) = mapping.read() {
                         let mut consume = mapping.consume == InputConsume::All;
                         for (id, data) in &mapping.actions {
@@ -810,7 +881,10 @@ impl InputContext {
                 if let Some(active_touch) = self.active_touch
                     && touch.id == active_touch
                 {
-                    for (_, mapping) in self.mappings_stack.iter().rev() {
+                    for (id, mapping) in self.mappings_stack.iter().rev() {
+                        if !validity.contains(id) {
+                            continue;
+                        }
                         if let Some(mapping) = mapping.read() {
                             let mut consume = mapping.consume == InputConsume::All;
                             for (id, data) in &mapping.actions {
@@ -858,6 +932,216 @@ impl InputContext {
                 }
             }
             _ => {}
+        }
+    }
+}
+
+#[derive(Default)]
+pub enum InputActionDetector {
+    #[default]
+    Listening,
+    Detected(VirtualAction),
+}
+
+impl InputActionDetector {
+    pub fn reset(&mut self) {
+        *self = Self::Listening;
+    }
+
+    pub fn try_consume(&mut self) -> Option<VirtualAction> {
+        if let Self::Detected(action) = self {
+            let action = *action;
+            *self = Self::Listening;
+            Some(action)
+        } else {
+            None
+        }
+    }
+
+    pub fn window_detect(&mut self, _context: &mut InputContext, event: &WindowEvent) {
+        if let Self::Listening = self {
+            match event {
+                WindowEvent::KeyboardInput { input, .. } => {
+                    if let Some(action) = input.virtual_keycode.map(VirtualAction::KeyButton) {
+                        *self = Self::Detected(action);
+                    }
+                }
+                WindowEvent::MouseInput { button, .. } => {
+                    *self = Self::Detected(VirtualAction::MouseButton(*button));
+                }
+                WindowEvent::AxisMotion { axis, .. } => {
+                    *self = Self::Detected(VirtualAction::Axis(*axis));
+                }
+                WindowEvent::Touch(_) => *self = Self::Detected(VirtualAction::Touch),
+                _ => {}
+            }
+        }
+    }
+
+    pub fn gamepad_detect(&mut self, context: &mut InputContext, gamepad_id: Option<GamepadId>) {
+        if let Self::Listening = self
+            && let Some(gamepads) = context.gamepads.as_mut()
+        {
+            while let Some(event) = gamepads.next_event() {
+                if let Some(id) = gamepad_id
+                    && id != event.id
+                {
+                    continue;
+                }
+                match event.event {
+                    GamepadEventType::ButtonPressed(info, ..) => {
+                        *self = Self::Detected(VirtualAction::GamepadButton(info));
+                        return;
+                    }
+                    GamepadEventType::AxisChanged(info, value, ..) => {
+                        if value.abs() > 0.5 {
+                            *self = Self::Detected(VirtualAction::GamepadAxis(info));
+                            return;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+pub enum InputAxisDetector {
+    #[default]
+    Listening,
+    TrackingMouse {
+        x: f64,
+        y: f64,
+    },
+    TrackingScroll {
+        x: f64,
+        y: f64,
+    },
+    TrackingTouch {
+        x: f64,
+        y: f64,
+    },
+    Detected(VirtualAxis),
+}
+
+impl InputAxisDetector {
+    pub fn reset(&mut self) {
+        *self = Self::Listening;
+    }
+
+    pub fn try_consume(&mut self) -> Option<VirtualAxis> {
+        if let Self::Detected(axis) = self {
+            let axis = *axis;
+            *self = Self::Listening;
+            Some(axis)
+        } else {
+            None
+        }
+    }
+
+    pub fn window_detect(&mut self, _context: &mut InputContext, event: &WindowEvent) {
+        match self {
+            Self::Listening => match event {
+                WindowEvent::KeyboardInput { input, .. } => {
+                    if let Some(key) = input.virtual_keycode {
+                        *self = Self::Detected(VirtualAxis::KeyButton(key));
+                    }
+                }
+                WindowEvent::MouseInput { button, .. } => {
+                    *self = Self::Detected(VirtualAxis::MouseButton(*button));
+                }
+                WindowEvent::CursorMoved { position, .. } => {
+                    *self = Self::TrackingMouse {
+                        x: position.x,
+                        y: position.y,
+                    };
+                }
+                WindowEvent::MouseWheel { delta, .. } => match delta {
+                    MouseScrollDelta::LineDelta(x, y) => {
+                        if x.abs() > y.abs() {
+                            *self = Self::Detected(VirtualAxis::MouseWheelX);
+                        } else if y.abs() > 0.0 {
+                            *self = Self::Detected(VirtualAxis::MouseWheelY);
+                        }
+                    }
+                    MouseScrollDelta::PixelDelta(pos) => {
+                        *self = Self::TrackingScroll {
+                            x: pos.x as _,
+                            y: pos.y as _,
+                        };
+                    }
+                },
+                WindowEvent::AxisMotion { axis, .. } => {
+                    *self = Self::Detected(VirtualAxis::Axis(*axis));
+                }
+                WindowEvent::Touch(touch) => {
+                    *self = Self::TrackingTouch {
+                        x: touch.location.x,
+                        y: touch.location.y,
+                    };
+                }
+                _ => {}
+            },
+            Self::TrackingMouse { x, y } => {
+                if let WindowEvent::CursorMoved { position, .. } = event {
+                    let delta_x = position.x - *x;
+                    let delta_y = position.y - *y;
+                    if delta_x.abs() > delta_y.abs() {
+                        *self = Self::Detected(VirtualAxis::MousePositionX);
+                    } else if delta_y.abs() > 0.0 {
+                        *self = Self::Detected(VirtualAxis::MousePositionY);
+                    }
+                }
+            }
+            Self::TrackingScroll { x, y } => {
+                if let WindowEvent::MouseWheel { delta, .. } = event
+                    && let MouseScrollDelta::PixelDelta(pos) = delta
+                {
+                    let delta_x = pos.x - *x;
+                    let delta_y = pos.y - *y;
+                    if delta_x.abs() > delta_y.abs() {
+                        *self = Self::Detected(VirtualAxis::MouseWheelX);
+                    } else if delta_y.abs() > 0.0 {
+                        *self = Self::Detected(VirtualAxis::MouseWheelY);
+                    }
+                }
+            }
+            Self::TrackingTouch { x, y } => {
+                if let WindowEvent::Touch(touch) = event {
+                    let delta_x = touch.location.x - *x;
+                    let delta_y = touch.location.y - *y;
+                    if delta_x.abs() > delta_y.abs() {
+                        *self = Self::Detected(VirtualAxis::TouchX);
+                    } else if delta_y.abs() > 0.0 {
+                        *self = Self::Detected(VirtualAxis::TouchY);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn gamepad_detect(&mut self, context: &mut InputContext, gamepad_id: Option<GamepadId>) {
+        if let Some(gamepads) = context.gamepads.as_mut() {
+            while let Some(event) = gamepads.next_event() {
+                if let Some(id) = gamepad_id
+                    && id != event.id
+                {
+                    continue;
+                }
+                match event.event {
+                    GamepadEventType::ButtonPressed(info, ..) => {
+                        *self = Self::Detected(VirtualAxis::GamepadButton(info));
+                    }
+                    GamepadEventType::AxisChanged(info, value, ..) => {
+                        if value.abs() > 0.5 {
+                            *self = Self::Detected(VirtualAxis::GamepadAxis(info));
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 }
