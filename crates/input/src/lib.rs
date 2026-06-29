@@ -4,10 +4,9 @@ use glutin::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
-use typid::ID;
 #[cfg(target_arch = "wasm32")]
 use winit::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
 
@@ -150,6 +149,10 @@ impl<T: Default> InputRef<T> {
             *data = value;
         }
     }
+
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 pub type InputActionRef = InputRef<InputAction>;
@@ -226,7 +229,7 @@ impl<T> InputCombinator<T> {
 }
 
 #[derive(Default)]
-pub struct CardinalInputCombinator(InputCombinator<[f32; 2]>);
+pub struct CardinalInputCombinator(pub InputCombinator<[f32; 2]>);
 
 impl CardinalInputCombinator {
     pub fn new(
@@ -254,7 +257,42 @@ impl CardinalInputCombinator {
 }
 
 #[derive(Default)]
-pub struct DualInputCombinator(InputCombinator<f32>);
+pub struct DirectionInputCombinator(pub InputCombinator<[f32; 2]>);
+
+impl DirectionInputCombinator {
+    pub fn new(
+        left: InputActionRef,
+        right: InputActionRef,
+        up: InputActionRef,
+        down: InputActionRef,
+        horizontal: InputAxisRef,
+        vertical: InputAxisRef,
+    ) -> Self {
+        Self(InputCombinator::new(move || {
+            let left = left.get().to_scalar(0.0, -1.0);
+            let right = right.get().to_scalar(0.0, 1.0);
+            let up = up.get().to_scalar(0.0, -1.0);
+            let down = down.get().to_scalar(0.0, 1.0);
+            let horizontal = horizontal.get().0;
+            let vertical = vertical.get().0;
+            let x = left + right + horizontal;
+            let y = up + down + vertical;
+            let length = (x * x + y * y).sqrt();
+            if length > 1.0 {
+                [x / length, y / length]
+            } else {
+                [x, y]
+            }
+        }))
+    }
+
+    pub fn get(&self) -> [f32; 2] {
+        self.0.get()
+    }
+}
+
+#[derive(Default)]
+pub struct DualInputCombinator(pub InputCombinator<f32>);
 
 impl DualInputCombinator {
     pub fn new(
@@ -275,7 +313,7 @@ impl DualInputCombinator {
     }
 }
 
-pub struct ArrayInputCombinator<const N: usize>(InputCombinator<[f32; N]>);
+pub struct ArrayInputCombinator<const N: usize>(pub InputCombinator<[f32; N]>);
 
 impl<const N: usize> Default for ArrayInputCombinator<N> {
     fn default() -> Self {
@@ -387,8 +425,7 @@ pub struct InputContext {
     pub mouse_wheel_line_scale: f32,
     /// [left, top, right, bottom]
     pub touch_area_margin: [f64; 4],
-    /// [(id, mapping)]
-    mappings_stack: Vec<(ID<InputMapping>, InputMappingRef)>,
+    mappings_stack: Vec<InputMappingRef>,
     characters: InputCharactersRef,
     gamepads: Option<Gilrs>,
     active_touch: Option<u64>,
@@ -450,13 +487,12 @@ impl InputContext {
         self.gamepads.as_mut()
     }
 
-    pub fn push_mapping(&mut self, mapping: impl Into<InputMappingRef>) -> ID<InputMapping> {
+    pub fn push_mapping(&mut self, mapping: impl Into<InputMappingRef>) -> InputMappingRef {
         let mapping = mapping.into();
-        let id = ID::default();
         let layer = mapping.read().unwrap().layer;
         let index = self
             .mappings_stack
-            .binary_search_by(|(_, mapping)| {
+            .binary_search_by(|mapping| {
                 mapping
                     .read()
                     .unwrap()
@@ -465,34 +501,31 @@ impl InputContext {
                     .then(Ordering::Less)
             })
             .unwrap_or_else(|index| index);
-        self.mappings_stack.insert(index, (id, mapping));
-        id
+        self.mappings_stack.insert(index, mapping.clone());
+        mapping
     }
 
     pub fn pop_mapping(&mut self) -> Option<InputMappingRef> {
-        self.mappings_stack.pop().map(|(_, mapping)| mapping)
+        self.mappings_stack.pop()
     }
 
     pub fn top_mapping(&self) -> Option<&InputMappingRef> {
-        self.mappings_stack.last().map(|(_, mapping)| mapping)
+        self.mappings_stack.last()
     }
 
-    pub fn remove_mapping(&mut self, id: ID<InputMapping>) -> Option<InputMappingRef> {
+    pub fn remove_mapping(&mut self, mapping: &InputMappingRef) -> Option<InputMappingRef> {
         self.mappings_stack
             .iter()
-            .position(|(mid, _)| mid == &id)
-            .map(|index| self.mappings_stack.remove(index).1)
-    }
-
-    pub fn mapping(&'_ self, id: ID<InputMapping>) -> Option<RwLockReadGuard<'_, InputMapping>> {
-        self.mappings_stack
-            .iter()
-            .find(|(mid, _)| mid == &id)
-            .and_then(|(_, mapping)| mapping.read())
+            .position(|m| mapping.ptr_eq(m))
+            .map(|index| self.mappings_stack.remove(index))
     }
 
     pub fn stack(&self) -> impl Iterator<Item = &InputMappingRef> {
-        self.mappings_stack.iter().map(|(_, mapping)| mapping)
+        self.mappings_stack.iter()
+    }
+
+    pub fn stack_mut(&mut self) -> impl Iterator<Item = &mut InputMappingRef> {
+        self.mappings_stack.iter_mut()
     }
 
     pub fn characters(&self) -> InputCharactersRef {
@@ -500,7 +533,7 @@ impl InputContext {
     }
 
     pub fn maintain(&mut self) {
-        for (_, mapping) in &mut self.mappings_stack {
+        for mapping in &mut self.mappings_stack {
             if let Some(mut mapping) = mapping.write() {
                 for action in mapping.actions.values_mut() {
                     if let Some(mut action) = action.write() {
@@ -520,7 +553,7 @@ impl InputContext {
         let validity = self
             .mappings_stack
             .iter()
-            .filter(|(_, mapping)| {
+            .filter(|mapping| {
                 mapping.read().is_some_and(|mapping| {
                     mapping
                         .validator
@@ -528,15 +561,15 @@ impl InputContext {
                         .is_none_or(|validator| validator())
                 })
             })
-            .map(|(id, _)| *id)
-            .collect::<HashSet<_>>();
+            .cloned()
+            .collect::<Vec<_>>();
 
         if let Some(gamepads) = self.gamepads.as_mut() {
             while let Some(GamepadEvent { id, event, .. }) = gamepads.next_event() {
                 match event {
                     GamepadEventType::ButtonPressed(info, ..) => {
-                        for (mapping_id, mapping) in self.mappings_stack.iter().rev() {
-                            if !validity.contains(mapping_id) {
+                        for mapping in self.mappings_stack.iter().rev() {
+                            if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                                 continue;
                             }
                             if let Some(mapping) = mapping.read() {
@@ -573,8 +606,8 @@ impl InputContext {
                         }
                     }
                     GamepadEventType::ButtonReleased(info, ..) => {
-                        for (mapping_id, mapping) in self.mappings_stack.iter().rev() {
-                            if !validity.contains(mapping_id) {
+                        for mapping in self.mappings_stack.iter().rev() {
+                            if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                                 continue;
                             }
                             if let Some(mapping) = mapping.read() {
@@ -611,8 +644,8 @@ impl InputContext {
                         }
                     }
                     GamepadEventType::AxisChanged(info, value, ..) => {
-                        for (id, mapping) in self.mappings_stack.iter().rev() {
-                            if !validity.contains(id) {
+                        for mapping in self.mappings_stack.iter().rev() {
+                            if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                                 continue;
                             }
                             if let Some(mapping) = mapping.read() {
@@ -656,7 +689,7 @@ impl InputContext {
         let validity = self
             .mappings_stack
             .iter()
-            .filter(|(_, mapping)| {
+            .filter(|mapping| {
                 mapping.read().is_some_and(|mapping| {
                     mapping
                         .validator
@@ -664,8 +697,8 @@ impl InputContext {
                         .is_none_or(|validator| validator())
                 })
             })
-            .map(|(id, _)| *id)
-            .collect::<HashSet<_>>();
+            .cloned()
+            .collect::<Vec<_>>();
 
         match event {
             WindowEvent::Resized(size) => {
@@ -681,8 +714,8 @@ impl InputContext {
             }
             WindowEvent::KeyboardInput { input, .. } => {
                 if let Some(key) = input.virtual_keycode {
-                    for (id, mapping) in self.mappings_stack.iter().rev() {
-                        if !validity.contains(id) {
+                    for mapping in self.mappings_stack.iter().rev() {
+                        if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                             continue;
                         }
                         if let Some(mapping) = mapping.read() {
@@ -721,8 +754,8 @@ impl InputContext {
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                for (id, mapping) in self.mappings_stack.iter().rev() {
-                    if !validity.contains(id) {
+                for mapping in self.mappings_stack.iter().rev() {
+                    if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                         continue;
                     }
                     if let Some(mapping) = mapping.read() {
@@ -755,8 +788,8 @@ impl InputContext {
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                for (id, mapping) in self.mappings_stack.iter().rev() {
-                    if !validity.contains(id) {
+                for mapping in self.mappings_stack.iter().rev() {
+                    if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                         continue;
                     }
                     if let Some(mapping) = mapping.read() {
@@ -795,8 +828,8 @@ impl InputContext {
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                for (id, mapping) in self.mappings_stack.iter().rev() {
-                    if !validity.contains(id) {
+                for mapping in self.mappings_stack.iter().rev() {
+                    if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                         continue;
                     }
                     if let Some(mapping) = mapping.read() {
@@ -834,8 +867,8 @@ impl InputContext {
                 }
             }
             WindowEvent::AxisMotion { axis, value, .. } => {
-                for (id, mapping) in self.mappings_stack.iter().rev() {
-                    if !validity.contains(id) {
+                for mapping in self.mappings_stack.iter().rev() {
+                    if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                         continue;
                     }
                     if let Some(mapping) = mapping.read() {
@@ -881,8 +914,8 @@ impl InputContext {
                 if let Some(active_touch) = self.active_touch
                     && touch.id == active_touch
                 {
-                    for (id, mapping) in self.mappings_stack.iter().rev() {
-                        if !validity.contains(id) {
+                    for mapping in self.mappings_stack.iter().rev() {
+                        if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                             continue;
                         }
                         if let Some(mapping) = mapping.read() {
@@ -993,11 +1026,9 @@ impl InputActionDetector {
                         *self = Self::Detected(VirtualAction::GamepadButton(info));
                         return;
                     }
-                    GamepadEventType::AxisChanged(info, value, ..) => {
-                        if value.abs() > 0.5 {
-                            *self = Self::Detected(VirtualAction::GamepadAxis(info));
-                            return;
-                        }
+                    GamepadEventType::AxisChanged(info, value, ..) if value.abs() > 0.5 => {
+                        *self = Self::Detected(VirtualAction::GamepadAxis(info));
+                        return;
                     }
                     _ => {}
                 }
@@ -1134,10 +1165,8 @@ impl InputAxisDetector {
                     GamepadEventType::ButtonPressed(info, ..) => {
                         *self = Self::Detected(VirtualAxis::GamepadButton(info));
                     }
-                    GamepadEventType::AxisChanged(info, value, ..) => {
-                        if value.abs() > 0.5 {
-                            *self = Self::Detected(VirtualAxis::GamepadAxis(info));
-                        }
+                    GamepadEventType::AxisChanged(info, value, ..) if value.abs() > 0.5 => {
+                        *self = Self::Detected(VirtualAxis::GamepadAxis(info));
                     }
                     _ => {}
                 }

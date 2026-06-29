@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-draw"
-version = "0.36.14"
+version = "0.37.0"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Drawing helper module for Spitfire toolset"
@@ -14,9 +14,9 @@ readme = "../../README.md"
 debug_automatic_glGetError = ["spitfire-glow/debug_automatic_glGetError"]
 
 [dependencies]
-spitfire-core = { version = "0.36", path = "../core" }
-spitfire-glow = { version = "0.36", path = "../glow" }
-spitfire-fontdue = { version = "0.36", path = "../fontdue" }
+spitfire-core = { version = "0.37", path = "../core" }
+spitfire-glow = { version = "0.37", path = "../glow" }
+spitfire-fontdue = { version = "0.37", path = "../fontdue" }
 bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.9"
 vek = "0.17"

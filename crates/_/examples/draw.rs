@@ -1,5 +1,5 @@
 use fontdue::Font;
-use rand::Rng;
+use rand::RngExt;
 use spitfire_draw::{
     context::DrawContext,
     nine_slice_sprite::NineSliceSprite,

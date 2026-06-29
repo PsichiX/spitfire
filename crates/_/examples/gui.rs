@@ -7,7 +7,8 @@ use raui_core::{
     layout::CoordsMappingScaling,
     widget::{
         component::{
-            image_box::ImageBoxProps, interactive::navigation::NavItemActive,
+            image_box::ImageBoxProps,
+            interactive::navigation::{NavAutoSelect, NavItemActive},
             text_box::TextBoxProps,
         },
         unit::{
@@ -32,7 +33,10 @@ use spitfire_glow::{
     graphics::{Graphics, Shader, Texture},
     renderer::{GlowBlending, GlowTextureFiltering, GlowTextureFormat},
 };
-use spitfire_gui::{context::GuiContext, interactions::GuiInteractionsInputs};
+use spitfire_gui::{
+    context::GuiContext,
+    interactions::{GuiDefaultDirectionCombinator, GuiInteractionsInputs},
+};
 use spitfire_input::*;
 use std::{fs::File, io::BufReader, path::Path};
 
@@ -47,6 +51,7 @@ struct State {
     // as well as immediate mode context and rendering configuration.
     gui: GuiContext,
     input: InputContext,
+    counter: usize,
 }
 
 impl AppState<Vertex> for State {
@@ -58,20 +63,41 @@ impl AppState<Vertex> for State {
         self.gui.texture_filtering = GlowTextureFiltering::Linear;
 
         // Define input actions and axes that will be used by GUI.
+        let trigger = InputActionRef::default();
+        let left = InputActionRef::default();
+        let right = InputActionRef::default();
+        let up = InputActionRef::default();
+        let down = InputActionRef::default();
+        let direction = GuiDefaultDirectionCombinator::new(
+            left.clone(),
+            right.clone(),
+            up.clone(),
+            down.clone(),
+            0.2,
+        )
+        .0;
         let pointer_x = InputAxisRef::default();
         let pointer_y = InputAxisRef::default();
         let pointer_trigger = InputActionRef::default();
 
         let inputs = GuiInteractionsInputs {
+            trigger: trigger.clone(),
+            direction,
             pointer_position: ArrayInputCombinator::new([pointer_x.clone(), pointer_y.clone()]),
             pointer_trigger: pointer_trigger.clone(),
             ..Default::default()
         };
         self.gui.interactions.inputs = inputs;
+        self.gui.interactions.engine.deselect_when_no_button_found = false;
 
         self.input.push_mapping(
             InputMapping::default()
                 .consume(InputConsume::Hit)
+                .action(VirtualAction::KeyButton(VirtualKeyCode::Space), trigger)
+                .action(VirtualAction::KeyButton(VirtualKeyCode::Up), up)
+                .action(VirtualAction::KeyButton(VirtualKeyCode::Down), down)
+                .action(VirtualAction::KeyButton(VirtualKeyCode::Left), left)
+                .action(VirtualAction::KeyButton(VirtualKeyCode::Right), right)
                 .axis(VirtualAxis::MousePositionX, pointer_x)
                 .axis(VirtualAxis::MousePositionY, pointer_y)
                 .action(
@@ -152,7 +178,7 @@ impl AppState<Vertex> for State {
                 });
 
                 nav_horizontal_box((), || {
-                    let response = button(NavItemActive, |_| {
+                    let response = button((NavItemActive, NavAutoSelect), |state| {
                         text_box(TextBoxProps {
                             text: "Minimize".to_owned(),
                             horizontal_align: TextBoxHorizontalAlign::Center,
@@ -161,11 +187,20 @@ impl AppState<Vertex> for State {
                                 name: "roboto".to_owned(),
                                 size: 32.0,
                             },
-                            color: Color {
-                                r: 0.0,
-                                g: 0.0,
-                                b: 0.75,
-                                a: 1.0,
+                            color: if state.state.selected {
+                                Color {
+                                    r: 0.0,
+                                    g: 0.0,
+                                    b: 1.0,
+                                    a: 1.0,
+                                }
+                            } else {
+                                Color {
+                                    r: 0.0,
+                                    g: 0.0,
+                                    b: 0.75,
+                                    a: 1.0,
+                                }
                             },
                             ..Default::default()
                         });
@@ -174,7 +209,7 @@ impl AppState<Vertex> for State {
                         control.set_minimized(true);
                     }
 
-                    let response = button(NavItemActive, |_| {
+                    let response = button(NavItemActive, |state| {
                         text_box(TextBoxProps {
                             text: if control.maximized() {
                                 "Restore".to_owned()
@@ -187,11 +222,20 @@ impl AppState<Vertex> for State {
                                 name: "roboto".to_owned(),
                                 size: 32.0,
                             },
-                            color: Color {
-                                r: 0.0,
-                                g: 0.75,
-                                b: 0.0,
-                                a: 1.0,
+                            color: if state.state.selected {
+                                Color {
+                                    r: 0.0,
+                                    g: 1.0,
+                                    b: 0.0,
+                                    a: 1.0,
+                                }
+                            } else {
+                                Color {
+                                    r: 0.0,
+                                    g: 0.75,
+                                    b: 0.0,
+                                    a: 1.0,
+                                }
                             },
                             ..Default::default()
                         });
@@ -200,7 +244,7 @@ impl AppState<Vertex> for State {
                         control.set_maximized(!control.maximized());
                     }
 
-                    let response = button(NavItemActive, |_| {
+                    let response = button(NavItemActive, |state| {
                         text_box(TextBoxProps {
                             text: "Close".to_owned(),
                             horizontal_align: TextBoxHorizontalAlign::Center,
@@ -209,17 +253,57 @@ impl AppState<Vertex> for State {
                                 name: "roboto".to_owned(),
                                 size: 32.0,
                             },
-                            color: Color {
-                                r: 0.75,
-                                g: 0.0,
-                                b: 0.0,
-                                a: 1.0,
+                            color: if state.state.selected {
+                                Color {
+                                    r: 1.0,
+                                    g: 0.0,
+                                    b: 0.0,
+                                    a: 1.0,
+                                }
+                            } else {
+                                Color {
+                                    r: 0.75,
+                                    g: 0.0,
+                                    b: 0.0,
+                                    a: 1.0,
+                                }
                             },
                             ..Default::default()
                         });
                     });
                     if response.trigger_start() {
                         control.close_requested = true;
+                    }
+
+                    let response = button(NavItemActive, |state| {
+                        text_box(TextBoxProps {
+                            text: format!("Counter: {}", self.counter),
+                            horizontal_align: TextBoxHorizontalAlign::Center,
+                            vertical_align: TextBoxVerticalAlign::Middle,
+                            font: TextBoxFont {
+                                name: "roboto".to_owned(),
+                                size: 32.0,
+                            },
+                            color: if state.state.selected {
+                                Color {
+                                    r: 1.0,
+                                    g: 1.0,
+                                    b: 1.0,
+                                    a: 1.0,
+                                }
+                            } else {
+                                Color {
+                                    r: 0.75,
+                                    g: 0.75,
+                                    b: 0.75,
+                                    a: 1.0,
+                                }
+                            },
+                            ..Default::default()
+                        });
+                    });
+                    if response.trigger_start() {
+                        self.counter += 1;
                     }
                 });
             });

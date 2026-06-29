@@ -139,14 +139,12 @@ impl<V: Pod, B> VertexStream<V, B> {
         self.vertices.extend(vertices);
         let end = self.vertices.len() as u32;
         let count = (end - start).saturating_sub(2);
-        let mut offset = start + 1;
-        for _ in 0..count {
+        for offset in (start + 1..).take(count as usize) {
             self.triangles.push(Triangle {
                 a: start,
                 b: offset,
                 c: offset + 1,
             });
-            offset += 1;
         }
         self
     }
@@ -157,9 +155,8 @@ impl<V: Pod, B> VertexStream<V, B> {
         self.vertices.extend(vertices);
         let end = self.vertices.len() as u32;
         let count = (end - start).saturating_sub(2);
-        let mut offset = start;
         let mut flip = false;
-        for _ in 0..count {
+        for offset in (start..).take(count as usize) {
             self.triangles.push(if flip {
                 Triangle {
                     a: offset + 1,
@@ -173,7 +170,6 @@ impl<V: Pod, B> VertexStream<V, B> {
                     c: offset + 2,
                 }
             });
-            offset += 1;
             flip = !flip;
         }
         self
