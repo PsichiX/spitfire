@@ -221,6 +221,7 @@ impl Drawable for Text {
                 blending: GlowBlending::Alpha,
                 scissor: Default::default(),
                 wireframe: context.wireframe,
+                mesh: None,
             });
             let transform = context.top_transform() * transform_to_matrix(self.transform);
             graphics.state_mut().stream.transformed(

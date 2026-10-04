@@ -68,6 +68,41 @@ impl From<[f32; 2]> for NineSliceMargins {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct NineSliceSegment {
+    from: f32,
+    to: f32,
+    uv_from: f32,
+    uv_to: f32,
+}
+
+impl NineSliceSegment {
+    fn new(from: f32, to: f32, uv_from: f32, uv_to: f32) -> Self {
+        Self {
+            from,
+            to,
+            uv_from,
+            uv_to,
+        }
+    }
+
+    fn repeated(self, repeat: Option<f32>) -> Vec<Self> {
+        let length = self.to - self.from;
+        let count = match repeat {
+            Some(repeat) if repeat > 0.0 => (length / repeat).round().max(1.0) as usize,
+            _ => 1,
+        };
+        let step = length / count as f32;
+        (0..count)
+            .map(|index| Self {
+                from: self.from + step * index as f32,
+                to: self.from + step * (index + 1) as f32,
+                ..self
+            })
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NineSliceSprite {
     pub shader: Option<ShaderRef>,
@@ -78,6 +113,9 @@ pub struct NineSliceSprite {
     pub margins_source: NineSliceMargins,
     pub margins_target: NineSliceMargins,
     pub frame_only: bool,
+    pub repeat_horizontal: Option<f32>,
+    pub repeat_vertical: Option<f32>,
+    pub center_repeat: bool,
     pub tint: Rgba<f32>,
     pub transform: Transform<f32, f32, f32>,
     pub size: Option<Vec2<f32>>,
@@ -97,6 +135,9 @@ impl Default for NineSliceSprite {
             margins_source: Default::default(),
             margins_target: Default::default(),
             frame_only: false,
+            repeat_horizontal: None,
+            repeat_vertical: None,
+            center_repeat: false,
             tint: Rgba::white(),
             transform: Default::default(),
             size: Default::default(),
@@ -148,6 +189,21 @@ impl NineSliceSprite {
 
     pub fn frame_only(mut self, value: bool) -> Self {
         self.frame_only = value;
+        self
+    }
+
+    pub fn repeat_horizontal(mut self, value: Option<f32>) -> Self {
+        self.repeat_horizontal = value;
+        self
+    }
+
+    pub fn repeat_vertical(mut self, value: Option<f32>) -> Self {
+        self.repeat_vertical = value;
+        self
+    }
+
+    pub fn center_repeat(mut self, value: bool) -> Self {
+        self.center_repeat = value;
         self
     }
 
@@ -235,6 +291,7 @@ impl Drawable for NineSliceSprite {
             blending: self.blending.unwrap_or_else(|| context.top_blending()),
             scissor: None,
             wireframe: context.wireframe,
+            mesh: None,
         };
         let transform = context.top_transform() * transform_to_matrix(self.transform);
         let size = self
@@ -266,134 +323,75 @@ impl Drawable for NineSliceSprite {
         let ttc = self.region.y + self.region.h * margins_source.top;
         let tbc = self.region.y + (1.0 - margins_source.bottom) * self.region.h;
         let tbf = self.region.y + self.region.h;
+        let columns = [
+            vec![NineSliceSegment::new(plf, plc, tlf, tlc)],
+            NineSliceSegment::new(plc, prc, tlc, trc).repeated(self.repeat_horizontal),
+            vec![NineSliceSegment::new(prc, prf, trc, trf)],
+        ];
+        let rows = [
+            vec![NineSliceSegment::new(ptf, ptc, ttf, ttc)],
+            NineSliceSegment::new(ptc, pbc, ttc, tbc).repeated(self.repeat_vertical),
+            vec![NineSliceSegment::new(pbc, pbf, tbc, tbf)],
+        ];
+        let stretched_columns = NineSliceSegment::new(plc, prc, tlc, trc).repeated(None);
+        let stretched_rows = NineSliceSegment::new(ptc, pbc, ttc, tbc).repeated(None);
+        let mut triangles = Vec::new();
+        let mut vertices = Vec::new();
+        for (row_index, row) in rows.iter().enumerate() {
+            for (column_index, column) in columns.iter().enumerate() {
+                let center = row_index == 1 && column_index == 1;
+                if center && self.frame_only {
+                    continue;
+                }
+                let (row, column) = if center && !self.center_repeat {
+                    (&stretched_rows, &stretched_columns)
+                } else {
+                    (row, column)
+                };
+                for y in row {
+                    for x in column {
+                        let base = vertices.len() as u32;
+                        triangles.push(Triangle {
+                            a: base,
+                            b: base + 1,
+                            c: base + 2,
+                        });
+                        triangles.push(Triangle {
+                            a: base + 2,
+                            b: base + 3,
+                            c: base,
+                        });
+                        vertices.extend([
+                            Vertex {
+                                position: [x.from, y.from],
+                                uv: [x.uv_from, y.uv_from, self.page],
+                                color,
+                            },
+                            Vertex {
+                                position: [x.to, y.from],
+                                uv: [x.uv_to, y.uv_from, self.page],
+                                color,
+                            },
+                            Vertex {
+                                position: [x.to, y.to],
+                                uv: [x.uv_to, y.uv_to, self.page],
+                                color,
+                            },
+                            Vertex {
+                                position: [x.from, y.to],
+                                uv: [x.uv_from, y.uv_to, self.page],
+                                color,
+                            },
+                        ]);
+                    }
+                }
+            }
+        }
         graphics.state_mut().stream.batch_optimized(batch);
         graphics.state_mut().stream.transformed(
             |stream| unsafe {
-                stream.extend_triangles(
-                    true,
-                    [
-                        Triangle { a: 0, b: 1, c: 5 },
-                        Triangle { a: 5, b: 4, c: 0 },
-                        Triangle { a: 1, b: 2, c: 6 },
-                        Triangle { a: 6, b: 5, c: 1 },
-                        Triangle { a: 2, b: 3, c: 7 },
-                        Triangle { a: 7, b: 6, c: 2 },
-                        Triangle { a: 4, b: 5, c: 9 },
-                        Triangle { a: 9, b: 8, c: 4 },
-                    ],
-                );
-                if !self.frame_only {
-                    stream.extend_triangles(
-                        true,
-                        [
-                            Triangle { a: 5, b: 6, c: 10 },
-                            Triangle { a: 10, b: 9, c: 5 },
-                        ],
-                    );
-                }
-                stream.extend_triangles(
-                    true,
-                    [
-                        Triangle { a: 6, b: 7, c: 11 },
-                        Triangle { a: 11, b: 10, c: 6 },
-                        Triangle { a: 8, b: 9, c: 13 },
-                        Triangle { a: 13, b: 12, c: 8 },
-                        Triangle { a: 9, b: 10, c: 14 },
-                        Triangle { a: 14, b: 13, c: 9 },
-                        Triangle {
-                            a: 10,
-                            b: 11,
-                            c: 15,
-                        },
-                        Triangle {
-                            a: 15,
-                            b: 14,
-                            c: 10,
-                        },
-                    ],
-                );
-                stream.extend_vertices([
-                    Vertex {
-                        position: [plf, ptf],
-                        uv: [tlf, ttf, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [plc, ptf],
-                        uv: [tlc, ttf, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prc, ptf],
-                        uv: [trc, ttf, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prf, ptf],
-                        uv: [trf, ttf, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [plf, ptc],
-                        uv: [tlf, ttc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [plc, ptc],
-                        uv: [tlc, ttc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prc, ptc],
-                        uv: [trc, ttc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prf, ptc],
-                        uv: [trf, ttc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [plf, pbc],
-                        uv: [tlf, tbc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [plc, pbc],
-                        uv: [tlc, tbc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prc, pbc],
-                        uv: [trc, tbc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prf, pbc],
-                        uv: [trf, tbc, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [plf, pbf],
-                        uv: [tlf, tbf, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [plc, pbf],
-                        uv: [tlc, tbf, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prc, pbf],
-                        uv: [trc, tbf, self.page],
-                        color,
-                    },
-                    Vertex {
-                        position: [prf, pbf],
-                        uv: [trf, tbf, self.page],
-                        color,
-                    },
-                ]);
+                stream.extend_triangles(true, triangles.iter().copied());
+                stream.extend_vertices(vertices.iter().copied());
             },
             |vertex| {
                 let point = transform.mul_point(Vec2::from(vertex.position) - offset);

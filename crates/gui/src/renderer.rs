@@ -5,7 +5,7 @@ use raui_core::{
     widget::{
         unit::{
             WidgetUnit, WidgetUnitData,
-            image::{ImageBoxImageScaling, ImageBoxMaterial},
+            image::{ImageBoxFrameCenter, ImageBoxImageScaling, ImageBoxMaterial},
             text::{TextBoxHorizontalAlign, TextBoxVerticalAlign},
         },
         utils::{Rect, lerp},
@@ -115,6 +115,11 @@ impl GuiRenderer<'_> {
                                             bottom: frame.destination.bottom * scale,
                                         })
                                         .frame_only(frame.frame_only)
+                                        .repeat_horizontal(
+                                            frame.repeat_horizontal.map(|v| v * scale),
+                                        )
+                                        .repeat_vertical(frame.repeat_vertical.map(|v| v * scale))
+                                        .center_repeat(frame.center == ImageBoxFrameCenter::Repeat)
                                         .screen_space(true)
                                         .draw(self.draw, self.graphics);
                                 }
@@ -231,6 +236,9 @@ impl GuiRenderer<'_> {
                                         bottom: frame.destination.bottom * scale,
                                     })
                                     .frame_only(frame.frame_only)
+                                    .repeat_horizontal(frame.repeat_horizontal.map(|v| v * scale))
+                                    .repeat_vertical(frame.repeat_vertical.map(|v| v * scale))
+                                    .center_repeat(frame.center == ImageBoxFrameCenter::Repeat)
                                     .screen_space(true)
                                     .draw(self.draw, self.graphics);
                                 }

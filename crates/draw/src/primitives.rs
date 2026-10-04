@@ -208,6 +208,7 @@ impl PrimitivesEmitter {
             blending: self.blending.unwrap_or_else(|| context.top_blending()),
             scissor: None,
             wireframe: context.wireframe,
+            mesh: None,
         };
         graphics.state_mut().stream.batch_optimized(batch);
         let transform = context.top_transform();

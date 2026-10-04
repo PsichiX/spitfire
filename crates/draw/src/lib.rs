@@ -6,6 +6,7 @@ pub mod particles;
 pub mod pixels;
 pub mod primitives;
 pub mod sprite;
+pub mod static_mesh;
 pub mod text;
 pub mod tiles;
 pub mod utils;

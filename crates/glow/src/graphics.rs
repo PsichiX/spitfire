@@ -1,20 +1,21 @@
 use crate::renderer::{
-    GlowBatch, GlowBlending, GlowRenderer, GlowState, GlowTextureFiltering, GlowTextureFormat,
-    GlowUniformValue, GlowVertexAttrib, GlowVertexAttribs,
+    GlowBatch, GlowBlending, GlowMesh, GlowRenderer, GlowState, GlowTextureFiltering,
+    GlowTextureFormat, GlowUniformValue, GlowVertexAttrib, GlowVertexAttribs,
 };
 use bytemuck::{Pod, Zeroable};
 use glow::{
     BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, Context, FILL, FRAGMENT_SHADER,
     FRAMEBUFFER, FRONT_AND_BACK, Framebuffer as GlowFrameBuffer, HasContext, NEAREST,
-    PixelUnpackData, Program as GlowProgram, SCISSOR_TEST, Shader as GlowShader, TEXTURE_2D_ARRAY,
-    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T,
-    Texture as GlowTexture, UNSIGNED_BYTE, VERTEX_SHADER,
+    PixelPackData, PixelUnpackData, Program as GlowProgram, RGBA, SCISSOR_TEST, STATIC_DRAW,
+    Shader as GlowShader, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R,
+    TEXTURE_WRAP_S, TEXTURE_WRAP_T, Texture as GlowTexture, UNSIGNED_BYTE, VERTEX_SHADER,
 };
-use spitfire_core::{VertexStream, VertexStreamRenderer};
+use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
 use std::{
     borrow::Cow,
     cell::{Cell, Ref, RefCell},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    ops::Range,
     rc::Rc,
 };
 use vek::{FrustumPlanes, Mat4, Rect, Transform, Vec2};
@@ -156,11 +157,21 @@ impl<V: GlowVertexAttribs> GraphicsTarget<V> for GraphicsState<V> {
     }
 }
 
+pub const SCREEN_CAPTURE_TARGET: &str = "screen";
+
+pub struct CapturedFrame {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<u8>,
+}
+
 pub struct Graphics<V: GlowVertexAttribs> {
     pub state: GraphicsState<V>,
     glow_state: GlowState,
     context: StrongContext,
     surface_stack: Vec<(Surface, Vec2<f32>, [f32; 4])>,
+    capture_requests: HashSet<String>,
+    captured_frames: HashMap<String, CapturedFrame>,
 }
 
 impl<V: GlowVertexAttribs> Drop for Graphics<V> {
@@ -178,6 +189,70 @@ impl<V: GlowVertexAttribs> Graphics<V> {
             glow_state: Default::default(),
             context: StrongContext::new(context),
             surface_stack: Default::default(),
+            capture_requests: Default::default(),
+            captured_frames: Default::default(),
+        }
+    }
+
+    pub fn request_capture(&mut self, target: impl Into<String>) {
+        self.capture_requests.insert(target.into());
+    }
+
+    pub fn is_capture_requested(&self, target: &str) -> bool {
+        self.capture_requests.contains(target)
+    }
+
+    pub fn capture_requests(&self) -> impl Iterator<Item = &str> {
+        self.capture_requests.iter().map(|target| target.as_str())
+    }
+
+    pub fn cancel_capture(&mut self, target: &str) -> bool {
+        self.capture_requests.remove(target)
+    }
+
+    pub fn take_capture(&mut self, target: &str) -> Option<CapturedFrame> {
+        self.captured_frames.remove(target)
+    }
+
+    pub fn capture_frame(&self) -> Option<CapturedFrame> {
+        let context = self.context.get()?;
+        let width = self.state.main_camera.screen_size.x as u32;
+        let height = self.state.main_camera.screen_size.y as u32;
+        if width == 0 || height == 0 {
+            return None;
+        }
+        let mut pixels = vec![0u8; (width * height * 4) as usize];
+        unsafe {
+            context.read_pixels(
+                0,
+                0,
+                width as _,
+                height as _,
+                RGBA,
+                UNSIGNED_BYTE,
+                PixelPackData::Slice(Some(&mut pixels)),
+            );
+        }
+        let stride = (width * 4) as usize;
+        let mut flipped = vec![0u8; pixels.len()];
+        for row in 0..height as usize {
+            let from = row * stride;
+            let to = (height as usize - 1 - row) * stride;
+            flipped[to..to + stride].copy_from_slice(&pixels[from..from + stride]);
+        }
+        Some(CapturedFrame {
+            width,
+            height,
+            pixels: flipped,
+        })
+    }
+
+    pub fn resolve_capture(&mut self, target: &str) {
+        if !self.capture_requests.remove(target) {
+            return;
+        }
+        if let Some(frame) = self.capture_frame() {
+            self.captured_frames.insert(target.to_owned(), frame);
         }
     }
 
@@ -236,6 +311,23 @@ impl<V: GlowVertexAttribs> Graphics<V> {
             } else {
                 Err("Invalid context".to_owned())
             }
+        }
+    }
+
+    pub fn mesh(&self, vertices: &[V], triangles: &[Triangle]) -> Result<Mesh, String> {
+        if let Some(context) = self.context.get() {
+            let result = Mesh {
+                inner: Rc::new(MeshInner {
+                    context: self.context.0.clone(),
+                    mesh: GlowMesh::new(&context)?,
+                    triangles: Cell::new(0),
+                }),
+            };
+            drop(context);
+            result.upload(vertices, triangles);
+            Ok(result)
+        } else {
+            Err("Invalid context".to_owned())
         }
     }
 
@@ -593,6 +685,7 @@ pub struct GraphicsBatch {
     pub blending: GlowBlending,
     pub scissor: Option<Rect<i32, i32>>,
     pub wireframe: bool,
+    pub mesh: Option<(Mesh, Range<usize>)>,
 }
 
 #[allow(clippy::from_over_into)]
@@ -625,6 +718,9 @@ impl Into<GlowBatch> for GraphicsBatch {
             blending: self.blending.into_gl(),
             scissor: self.scissor.map(|v| [v.x, v.y, v.w, v.h]),
             wireframe: self.wireframe,
+            mesh: self
+                .mesh
+                .map(|(mesh, range)| (mesh.handle().vertex_array, range)),
         }
     }
 }
@@ -697,6 +793,51 @@ impl PartialEq for Surface {
 }
 
 #[derive(Debug)]
+struct MeshInner {
+    context: MaybeContext,
+    mesh: GlowMesh,
+    triangles: Cell<usize>,
+}
+
+impl Drop for MeshInner {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.get() {
+            self.mesh.dispose(&context);
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Mesh {
+    inner: Rc<MeshInner>,
+}
+
+impl Mesh {
+    pub fn handle(&self) -> GlowMesh {
+        self.inner.mesh
+    }
+
+    pub fn triangles(&self) -> usize {
+        self.inner.triangles.get()
+    }
+
+    pub fn upload<V: GlowVertexAttribs>(&self, vertices: &[V], triangles: &[Triangle]) {
+        if let Some(context) = self.inner.context.get() {
+            self.inner
+                .mesh
+                .upload(&context, vertices, triangles, STATIC_DRAW);
+            self.inner.triangles.set(triangles.len());
+        }
+    }
+}
+
+impl PartialEq for Mesh {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
+#[derive(Debug)]
 struct TextureInner {
     context: MaybeContext,
     texture: GlowTexture,
@@ -756,21 +897,6 @@ impl Texture {
                 context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_WRAP_R, CLAMP_TO_EDGE as _);
                 context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MIN_FILTER, NEAREST as _);
                 context.tex_parameter_i32(TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, NEAREST as _);
-                // TODO: make fix in web_sys module of `glow` to fix depth and border args ordering.
-                #[cfg(target_arch = "wasm32")]
-                context.tex_image_3d(
-                    TEXTURE_2D_ARRAY,
-                    0,
-                    format.into_gl() as _,
-                    width as _,
-                    height as _,
-                    0,
-                    depth as _,
-                    format.into_gl(),
-                    UNSIGNED_BYTE,
-                    PixelUnpackData::Slice(data),
-                );
-                #[cfg(not(target_arch = "wasm32"))]
                 context.tex_image_3d(
                     TEXTURE_2D_ARRAY,
                     0,

@@ -115,10 +115,22 @@ pub struct GlowBatch {
     /// [x, y, width, height]?
     pub scissor: Option<[i32; 4]>,
     pub wireframe: bool,
+    /// (vertex array, triangle range) of a mesh that replaces the stream.
+    ///
+    /// The batch draws from the frame stream when this is `None`. When it is
+    /// set, the batch draws the given triangles of the given mesh instead, and
+    /// the range that the stream gives to [`GlowBatch::draw`] is not used.
+    pub mesh: Option<(VertexArray, Range<usize>)>,
 }
 
 impl GlowBatch {
-    pub fn draw<V: GlowVertexAttribs>(&self, context: &Context, range: Range<usize>, prev: &Self) {
+    pub fn draw<V: GlowVertexAttribs>(
+        &self,
+        context: &Context,
+        stream: VertexArray,
+        range: Range<usize>,
+        prev: &Self,
+    ) {
         unsafe {
             if let Some(program) = self.shader_program {
                 let changed = prev
@@ -220,6 +232,17 @@ impl GlowBatch {
                     context.polygon_mode(FRONT_AND_BACK, FILL);
                 }
             }
+            let (vertex_array, range) = match self.mesh.as_ref() {
+                Some((vertex_array, range)) => (*vertex_array, range.clone()),
+                None => (stream, range),
+            };
+            let previous = match prev.mesh.as_ref() {
+                Some((vertex_array, _)) => *vertex_array,
+                None => stream,
+            };
+            if vertex_array != previous {
+                context.bind_vertex_array(Some(vertex_array));
+            }
             context.draw_elements(
                 TRIANGLES,
                 range.len() as i32 * 3,
@@ -230,15 +253,15 @@ impl GlowBatch {
     }
 }
 
-#[derive(Copy, Clone)]
-struct GlowMesh {
-    vertex_array: VertexArray,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
+#[derive(Debug, Copy, Clone)]
+pub struct GlowMesh {
+    pub vertex_array: VertexArray,
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
 }
 
 impl GlowMesh {
-    fn new(context: &Context) -> Result<Self, String> {
+    pub fn new(context: &Context) -> Result<Self, String> {
         unsafe {
             Ok(GlowMesh {
                 vertex_array: context.create_vertex_array()?,
@@ -248,7 +271,7 @@ impl GlowMesh {
         }
     }
 
-    fn dispose(self, context: &Context) {
+    pub fn dispose(self, context: &Context) {
         unsafe {
             context.delete_vertex_array(self.vertex_array);
             context.delete_buffer(self.vertex_buffer);
@@ -256,18 +279,19 @@ impl GlowMesh {
         }
     }
 
-    fn upload<V: GlowVertexAttribs>(
+    pub fn upload<V: GlowVertexAttribs>(
         &self,
         context: &Context,
         vertices: &[V],
         triangles: &[Triangle],
+        usage: u32,
     ) {
         unsafe {
             context.bind_vertex_array(Some(self.vertex_array));
             context.bind_buffer(ARRAY_BUFFER, Some(self.vertex_buffer));
-            context.buffer_data_u8_slice(ARRAY_BUFFER, cast_slice(vertices), STREAM_DRAW);
+            context.buffer_data_u8_slice(ARRAY_BUFFER, cast_slice(vertices), usage);
             context.bind_buffer(ELEMENT_ARRAY_BUFFER, Some(self.index_buffer));
-            context.buffer_data_u8_slice(ELEMENT_ARRAY_BUFFER, cast_slice(triangles), STREAM_DRAW);
+            context.buffer_data_u8_slice(ELEMENT_ARRAY_BUFFER, cast_slice(triangles), usage);
             let mut offset = 0;
             let stride = V::ATTRIBS
                 .iter()
@@ -363,11 +387,16 @@ where
 
     fn render(&mut self, stream: &mut VertexStream<V, B>) -> Result<(), Self::Error> {
         let mesh = self.state.mesh(self.context)?;
-        mesh.upload(self.context, stream.vertices(), stream.triangles());
+        mesh.upload(
+            self.context,
+            stream.vertices(),
+            stream.triangles(),
+            STREAM_DRAW,
+        );
         let mut prev = GlowBatch::default();
         for (batch, range) in stream.batches().iter().cloned() {
             let batch = batch.into();
-            batch.draw::<V>(self.context, range, &prev);
+            batch.draw::<V>(self.context, mesh.vertex_array, range, &prev);
             prev = batch;
         }
         Ok(())

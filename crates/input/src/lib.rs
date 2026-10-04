@@ -643,6 +643,44 @@ impl InputContext {
                             }
                         }
                     }
+                    GamepadEventType::ButtonChanged(info, value, ..) => {
+                        for mapping in self.mappings_stack.iter().rev() {
+                            if !validity.iter().any(|m| m.ptr_eq(mapping)) {
+                                continue;
+                            }
+                            if let Some(mapping) = mapping.read() {
+                                if !mapping.gamepad.map(|gamepad| gamepad == id).unwrap_or(true) {
+                                    continue;
+                                }
+                                let mut consume = mapping.consume == InputConsume::All;
+                                for (id, data) in &mapping.actions {
+                                    if let VirtualAction::GamepadButton(button) = id
+                                        && *button == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        *data = data.change(value > 0.5);
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
+                                        }
+                                    }
+                                }
+                                for (id, data) in &mapping.axes {
+                                    if let VirtualAxis::GamepadButton(button) = id
+                                        && *button == info
+                                        && let Some(mut data) = data.write()
+                                    {
+                                        data.0 = value;
+                                        if mapping.consume == InputConsume::Hit {
+                                            consume = true;
+                                        }
+                                    }
+                                }
+                                if consume {
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     GamepadEventType::AxisChanged(info, value, ..) => {
                         for mapping in self.mappings_stack.iter().rev() {
                             if !validity.iter().any(|m| m.ptr_eq(mapping)) {
@@ -1026,6 +1064,10 @@ impl InputActionDetector {
                         *self = Self::Detected(VirtualAction::GamepadButton(info));
                         return;
                     }
+                    GamepadEventType::ButtonChanged(info, value, ..) if value.abs() > 0.5 => {
+                        *self = Self::Detected(VirtualAction::GamepadButton(info));
+                        return;
+                    }
                     GamepadEventType::AxisChanged(info, value, ..) if value.abs() > 0.5 => {
                         *self = Self::Detected(VirtualAction::GamepadAxis(info));
                         return;
@@ -1163,6 +1205,9 @@ impl InputAxisDetector {
                 }
                 match event.event {
                     GamepadEventType::ButtonPressed(info, ..) => {
+                        *self = Self::Detected(VirtualAxis::GamepadButton(info));
+                    }
+                    GamepadEventType::ButtonChanged(info, value, ..) if value.abs() > 0.5 => {
                         *self = Self::Detected(VirtualAxis::GamepadButton(info));
                     }
                     GamepadEventType::AxisChanged(info, value, ..) if value.abs() > 0.5 => {
