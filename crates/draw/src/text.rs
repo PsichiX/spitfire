@@ -218,7 +218,7 @@ impl Drawable for Text {
                 } else {
                     vec![]
                 },
-                blending: GlowBlending::Alpha,
+                blending: self.blending.unwrap_or(GlowBlending::Alpha),
                 scissor: Default::default(),
                 wireframe: context.wireframe,
                 mesh: None,

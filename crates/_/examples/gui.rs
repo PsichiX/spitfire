@@ -1,8 +1,4 @@
 use fontdue::Font;
-use glutin::{
-    event::{Event, MouseButton},
-    window::Window,
-};
 use raui_core::{
     layout::CoordsMappingScaling,
     widget::{
@@ -39,6 +35,10 @@ use spitfire_gui::{
 };
 use spitfire_input::*;
 use std::{fs::File, io::BufReader, path::Path};
+use winit::{
+    event::{Event, MouseButton},
+    window::Window,
+};
 
 fn main() {
     App::<Vertex>::default().run(State::default());
@@ -93,11 +93,11 @@ impl AppState<Vertex> for State {
         self.input.push_mapping(
             InputMapping::default()
                 .consume(InputConsume::Hit)
-                .action(VirtualAction::KeyButton(VirtualKeyCode::Space), trigger)
-                .action(VirtualAction::KeyButton(VirtualKeyCode::Up), up)
-                .action(VirtualAction::KeyButton(VirtualKeyCode::Down), down)
-                .action(VirtualAction::KeyButton(VirtualKeyCode::Left), left)
-                .action(VirtualAction::KeyButton(VirtualKeyCode::Right), right)
+                .action(VirtualAction::KeyButton(KeyCode::Space), trigger)
+                .action(VirtualAction::KeyButton(KeyCode::ArrowUp), up)
+                .action(VirtualAction::KeyButton(KeyCode::ArrowDown), down)
+                .action(VirtualAction::KeyButton(KeyCode::ArrowLeft), left)
+                .action(VirtualAction::KeyButton(KeyCode::ArrowRight), right)
                 .axis(VirtualAxis::MousePositionX, pointer_x)
                 .axis(VirtualAxis::MousePositionY, pointer_y)
                 .action(
@@ -324,7 +324,7 @@ impl AppState<Vertex> for State {
         self.input.maintain();
     }
 
-    fn on_event(&mut self, event: Event<()>, _: &mut Window) -> bool {
+    fn on_event(&mut self, event: Event<()>, _: Option<&Window>) -> bool {
         if let Event::WindowEvent { event, .. } = event {
             self.input.on_event(&event);
         }

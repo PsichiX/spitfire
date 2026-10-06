@@ -1,10 +1,10 @@
 use bytemuck::{Pod, checked::cast_slice};
 use glow::{
     ARRAY_BUFFER, BLEND, Buffer, Context, DST_COLOR, ELEMENT_ARRAY_BUFFER, FILL, FLOAT,
-    FRONT_AND_BACK, HasContext, INT, LINE, LINEAR, NEAREST, ONE, ONE_MINUS_SRC_ALPHA, Program, RGB,
-    RGBA, RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA, STREAM_DRAW, TEXTURE_2D_ARRAY,
-    TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE0, TRIANGLES, Texture, UNSIGNED_INT,
-    VertexArray, ZERO,
+    FRONT_AND_BACK, HALF_FLOAT, HasContext, INT, LINE, LINEAR, LINEAR_MIPMAP_LINEAR, NEAREST, ONE,
+    ONE_MINUS_SRC_ALPHA, Program, RGB, RGBA, RGBA16F, RGBA32F, SCISSOR_TEST, SRC_ALPHA,
+    STREAM_DRAW, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE0, TRIANGLES,
+    Texture, UNSIGNED_BYTE, UNSIGNED_INT, VertexArray, ZERO,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, ops::Range};
@@ -50,6 +50,7 @@ pub enum GlowBlending {
     Alpha,
     Multiply,
     Additive,
+    PremultipliedAlpha,
 }
 
 impl GlowBlending {
@@ -59,6 +60,7 @@ impl GlowBlending {
             Self::Alpha => Some((SRC_ALPHA, ONE_MINUS_SRC_ALPHA)),
             Self::Multiply => Some((DST_COLOR, ZERO)),
             Self::Additive => Some((ONE, ONE)),
+            Self::PremultipliedAlpha => Some((ONE, ONE_MINUS_SRC_ALPHA)),
         }
     }
 }
@@ -68,6 +70,7 @@ pub enum GlowTextureFiltering {
     #[default]
     Nearest,
     Linear,
+    LinearMipmap,
 }
 
 impl GlowTextureFiltering {
@@ -75,6 +78,7 @@ impl GlowTextureFiltering {
         match self {
             Self::Nearest => (NEAREST as _, NEAREST as _),
             Self::Linear => (LINEAR as _, LINEAR as _),
+            Self::LinearMipmap => (LINEAR_MIPMAP_LINEAR as _, LINEAR as _),
         }
     }
 }
@@ -100,6 +104,21 @@ impl GlowTextureFormat {
             Self::Monochromatic => glow::LUMINANCE,
             Self::Data16 => RGBA16F,
             Self::Data32 => RGBA32F,
+        }
+    }
+
+    pub fn into_gl_format(self) -> u32 {
+        match self {
+            Self::Data16 | Self::Data32 => RGBA,
+            _ => self.into_gl(),
+        }
+    }
+
+    pub fn into_gl_type(self) -> u32 {
+        match self {
+            Self::Data16 => HALF_FLOAT,
+            Self::Data32 => FLOAT,
+            _ => UNSIGNED_BYTE,
         }
     }
 }
@@ -144,7 +163,7 @@ impl GlowBatch {
                             .uniforms
                             .get(name)
                             .map(|v| value != v)
-                            .unwrap_or_default()
+                            .unwrap_or(true)
                     {
                         let location = context.get_uniform_location(program, name.as_ref());
                         if let Some(location) = location {

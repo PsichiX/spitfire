@@ -1,20 +1,17 @@
 use gilrs::{Event as GamepadEvent, EventType as GamepadEventType, Gilrs};
-#[cfg(not(target_arch = "wasm32"))]
-use glutin::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
 use std::{
     borrow::Cow,
     cmp::Ordering,
     collections::HashMap,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
-#[cfg(target_arch = "wasm32")]
-use winit::event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent};
+use winit::{
+    event::{ElementState, Ime, MouseScrollDelta, TouchPhase, WindowEvent},
+    keyboard::PhysicalKey,
+};
 
 pub use gilrs::{Axis as GamepadAxis, Button as GamepadButton, GamepadId};
-#[cfg(not(target_arch = "wasm32"))]
-pub use glutin::event::{MouseButton, VirtualKeyCode};
-#[cfg(target_arch = "wasm32")]
-pub use winit::event::{MouseButton, VirtualKeyCode};
+pub use winit::{event::MouseButton, keyboard::KeyCode};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum InputConsume {
@@ -26,7 +23,7 @@ pub enum InputConsume {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VirtualAction {
-    KeyButton(VirtualKeyCode),
+    KeyButton(KeyCode),
     MouseButton(MouseButton),
     Axis(u32),
     GamepadButton(GamepadButton),
@@ -36,7 +33,7 @@ pub enum VirtualAction {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VirtualAxis {
-    KeyButton(VirtualKeyCode),
+    KeyButton(KeyCode),
     MousePositionX,
     MousePositionY,
     MouseWheelX,
@@ -742,16 +739,19 @@ impl InputContext {
             WindowEvent::Resized(size) => {
                 self.window_size = [size.width as _, size.height as _];
             }
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                self.window_size = [new_inner_size.width as _, new_inner_size.height as _];
-            }
-            WindowEvent::ReceivedCharacter(character) => {
+            WindowEvent::Ime(Ime::Commit(text)) => {
                 if let Some(mut characters) = self.characters.write() {
-                    characters.characters.push(*character);
+                    characters.characters.push_str(text);
                 }
             }
-            WindowEvent::KeyboardInput { input, .. } => {
-                if let Some(key) = input.virtual_keycode {
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed
+                    && let Some(text) = event.text.as_ref()
+                    && let Some(mut characters) = self.characters.write()
+                {
+                    characters.characters.push_str(text);
+                }
+                if let Some(key) = key_code(event.physical_key) {
                     for mapping in self.mappings_stack.iter().rev() {
                         if !validity.iter().any(|m| m.ptr_eq(mapping)) {
                             continue;
@@ -763,7 +763,7 @@ impl InputContext {
                                     && *button == key
                                     && let Some(mut data) = data.write()
                                 {
-                                    *data = data.change(input.state == ElementState::Pressed);
+                                    *data = data.change(event.state == ElementState::Pressed);
                                     if mapping.consume == InputConsume::Hit {
                                         consume = true;
                                     }
@@ -774,7 +774,7 @@ impl InputContext {
                                     && *button == key
                                     && let Some(mut data) = data.write()
                                 {
-                                    data.0 = if input.state == ElementState::Pressed {
+                                    data.0 = if event.state == ElementState::Pressed {
                                         1.0
                                     } else {
                                         0.0
@@ -1032,8 +1032,9 @@ impl InputActionDetector {
     pub fn window_detect(&mut self, _context: &mut InputContext, event: &WindowEvent) {
         if let Self::Listening = self {
             match event {
-                WindowEvent::KeyboardInput { input, .. } => {
-                    if let Some(action) = input.virtual_keycode.map(VirtualAction::KeyButton) {
+                WindowEvent::KeyboardInput { event, .. } => {
+                    if let Some(action) = key_code(event.physical_key).map(VirtualAction::KeyButton)
+                    {
                         *self = Self::Detected(action);
                     }
                 }
@@ -1116,8 +1117,8 @@ impl InputAxisDetector {
     pub fn window_detect(&mut self, _context: &mut InputContext, event: &WindowEvent) {
         match self {
             Self::Listening => match event {
-                WindowEvent::KeyboardInput { input, .. } => {
-                    if let Some(key) = input.virtual_keycode {
+                WindowEvent::KeyboardInput { event, .. } => {
+                    if let Some(key) = key_code(event.physical_key) {
                         *self = Self::Detected(VirtualAxis::KeyButton(key));
                     }
                 }
@@ -1217,6 +1218,13 @@ impl InputAxisDetector {
                 }
             }
         }
+    }
+}
+
+fn key_code(key: PhysicalKey) -> Option<KeyCode> {
+    match key {
+        PhysicalKey::Code(code) => Some(code),
+        PhysicalKey::Unidentified(_) => None,
     }
 }
 

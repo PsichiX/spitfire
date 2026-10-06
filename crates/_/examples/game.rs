@@ -1,8 +1,4 @@
 use fontdue::Font;
-use glutin::{
-    event::{Event, MouseButton},
-    window::Window,
-};
 use rand::random;
 use raui_core::widget::{
     component::{
@@ -34,6 +30,10 @@ use spitfire_glow::{
 use spitfire_gui::{context::GuiContext, interactions::GuiInteractionsInputs};
 use spitfire_input::*;
 use std::{borrow::Cow, cmp::Ordering, fs::File, io::BufReader, path::Path};
+use winit::{
+    event::{Event, MouseButton},
+    window::Window,
+};
 
 fn main() {
     App::<Vertex>::default().run(State::default());
@@ -476,7 +476,7 @@ impl AppState<Vertex> for State {
         self.input.maintain();
     }
 
-    fn on_event(&mut self, event: Event<()>, _: &mut Window) -> bool {
+    fn on_event(&mut self, event: Event<()>, _: Option<&Window>) -> bool {
         if let Event::WindowEvent { event, .. } = event {
             self.input.on_event(&event);
         }

@@ -5,10 +5,11 @@ use crate::renderer::{
 use bytemuck::{Pod, Zeroable};
 use glow::{
     BLEND, CLAMP_TO_EDGE, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, Context, FILL, FRAGMENT_SHADER,
-    FRAMEBUFFER, FRONT_AND_BACK, Framebuffer as GlowFrameBuffer, HasContext, NEAREST,
-    PixelPackData, PixelUnpackData, Program as GlowProgram, RGBA, SCISSOR_TEST, STATIC_DRAW,
-    Shader as GlowShader, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TEXTURE_WRAP_R,
-    TEXTURE_WRAP_S, TEXTURE_WRAP_T, Texture as GlowTexture, UNSIGNED_BYTE, VERTEX_SHADER,
+    FRAMEBUFFER, FRONT_AND_BACK, Framebuffer as GlowFrameBuffer, HasContext, MAX_DRAW_BUFFERS,
+    NEAREST, PixelPackData, PixelUnpackData, Program as GlowProgram, RGBA, SCISSOR_TEST,
+    STATIC_DRAW, Shader as GlowShader, TEXTURE_2D_ARRAY, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER,
+    TEXTURE_WRAP_R, TEXTURE_WRAP_S, TEXTURE_WRAP_T, Texture as GlowTexture, UNSIGNED_BYTE,
+    VERTEX_SHADER,
 };
 use spitfire_core::{Triangle, VertexStream, VertexStreamRenderer};
 use std::{
@@ -288,17 +289,29 @@ impl<V: GlowVertexAttribs> Graphics<V> {
         }
         unsafe {
             if let Some(context) = self.context.get() {
+                let max_draw_buffers = context.get_parameter_i32(MAX_DRAW_BUFFERS).max(1) as usize;
+                if attachments.len() > max_draw_buffers {
+                    return Err(format!(
+                        "Surface has {} attachments, but platform supports at most {}",
+                        attachments.len(),
+                        max_draw_buffers
+                    ));
+                }
                 let framebuffer = context.create_framebuffer()?;
                 context.bind_framebuffer(FRAMEBUFFER, Some(framebuffer));
-                for (index, attachment) in attachments.iter().enumerate() {
+                let draw_buffers = (0..attachments.len())
+                    .map(|index| COLOR_ATTACHMENT0 + index as u32)
+                    .collect::<Vec<_>>();
+                for (attachment, draw_buffer) in attachments.iter().zip(draw_buffers.iter()) {
                     context.framebuffer_texture_layer(
                         FRAMEBUFFER,
-                        COLOR_ATTACHMENT0 + index as u32,
+                        *draw_buffer,
                         Some(attachment.texture.handle()),
                         0,
                         attachment.layer as _,
                     );
                 }
+                context.draw_buffers(&draw_buffers);
                 context.bind_framebuffer(FRAMEBUFFER, None);
                 Ok(Surface {
                     inner: Rc::new(SurfaceInner {
@@ -905,12 +918,21 @@ impl Texture {
                     height as _,
                     depth as _,
                     0,
-                    format.into_gl(),
-                    UNSIGNED_BYTE,
+                    format.into_gl_format(),
+                    format.into_gl_type(),
                     PixelUnpackData::Slice(data),
                 );
                 self.inner.size.set((width, height, depth));
                 self.inner.format.set(format);
+            }
+        }
+    }
+
+    pub fn generate_mipmaps(&self) {
+        unsafe {
+            if let Some(context) = self.inner.context.get() {
+                context.bind_texture(TEXTURE_2D_ARRAY, Some(self.inner.texture));
+                context.generate_mipmap(TEXTURE_2D_ARRAY);
             }
         }
     }

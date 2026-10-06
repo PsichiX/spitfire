@@ -1,6 +1,6 @@
 [package]
 name = "spitfire-input"
-version = "0.37.1"
+version = "0.38.0"
 edition = "2024"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Input module for Spitfire toolset"
@@ -12,9 +12,4 @@ readme = "../../README.md"
 
 [dependencies]
 gilrs = "0.11"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = "0.28"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-glutin = "0.28"
+winit = "0.30"

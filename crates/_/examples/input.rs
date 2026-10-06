@@ -1,7 +1,3 @@
-use glutin::{
-    event::{Event, VirtualKeyCode},
-    window::Window,
-};
 use spitfire_draw::{
     context::DrawContext,
     sprite::{Sprite, SpriteTexture},
@@ -15,6 +11,7 @@ use spitfire_glow::{
 use spitfire_input::*;
 use std::{fs::File, io::BufReader, path::Path, time::Instant};
 use vek::{Quaternion, Rgba, Vec2};
+use winit::{event::Event, window::Window};
 
 fn main() {
     App::<Vertex>::default().run(State::new());
@@ -49,60 +46,45 @@ impl Player {
             InputMapping::default()
                 .consume(InputConsume::Hit)
                 .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::Left),
+                    VirtualAction::KeyButton(KeyCode::ArrowLeft),
                     move_left.clone(),
                 )
-                .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::A),
-                    move_left.clone(),
-                )
+                .action(VirtualAction::KeyButton(KeyCode::KeyA), move_left.clone())
                 .action(
                     VirtualAction::GamepadButton(GamepadButton::DPadLeft),
                     move_left.clone(),
                 )
                 .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::Right),
+                    VirtualAction::KeyButton(KeyCode::ArrowRight),
                     move_right.clone(),
                 )
-                .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::D),
-                    move_right.clone(),
-                )
+                .action(VirtualAction::KeyButton(KeyCode::KeyD), move_right.clone())
                 .action(
                     VirtualAction::GamepadButton(GamepadButton::DPadRight),
                     move_right.clone(),
                 )
-                .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::Up),
-                    move_up.clone(),
-                )
-                .action(VirtualAction::KeyButton(VirtualKeyCode::W), move_up.clone())
+                .action(VirtualAction::KeyButton(KeyCode::ArrowUp), move_up.clone())
+                .action(VirtualAction::KeyButton(KeyCode::KeyW), move_up.clone())
                 .action(
                     VirtualAction::GamepadButton(GamepadButton::DPadUp),
                     move_up.clone(),
                 )
                 .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::Down),
+                    VirtualAction::KeyButton(KeyCode::ArrowDown),
                     move_down.clone(),
                 )
-                .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::S),
-                    move_down.clone(),
-                )
+                .action(VirtualAction::KeyButton(KeyCode::KeyS), move_down.clone())
                 .action(
                     VirtualAction::GamepadButton(GamepadButton::DPadDown),
                     move_down.clone(),
                 )
-                .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::Q),
-                    rotate_left.clone(),
-                )
+                .action(VirtualAction::KeyButton(KeyCode::KeyQ), rotate_left.clone())
                 .action(
                     VirtualAction::GamepadButton(GamepadButton::West),
                     rotate_left.clone(),
                 )
                 .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::E),
+                    VirtualAction::KeyButton(KeyCode::KeyE),
                     rotate_right.clone(),
                 )
                 .action(
@@ -110,7 +92,7 @@ impl Player {
                     rotate_right.clone(),
                 )
                 .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::Space),
+                    VirtualAction::KeyButton(KeyCode::Space),
                     input_camera_attached_to_ferris.clone(),
                 )
                 .action(
@@ -198,7 +180,7 @@ impl State {
         input.push_mapping(
             InputMapping::default()
                 .action(
-                    VirtualAction::KeyButton(VirtualKeyCode::Escape),
+                    VirtualAction::KeyButton(KeyCode::Escape),
                     input_exit.clone(),
                 )
                 .axis(VirtualAxis::MousePositionX, input_pointer_x)
@@ -293,7 +275,7 @@ impl AppState<Vertex> for State {
         self.input.maintain();
     }
 
-    fn on_event(&mut self, event: Event<()>, _: &mut Window) -> bool {
+    fn on_event(&mut self, event: Event<()>, _: Option<&Window>) -> bool {
         if let Event::WindowEvent { event, .. } = event {
             // Here we apply received input changes for stack to update.
             self.input.on_event(&event);

@@ -1,7 +1,3 @@
-use glutin::{
-    event::{Event, VirtualKeyCode, WindowEvent},
-    window::Window,
-};
 use spitfire_draw::{
     context::DrawContext,
     pixels::{Pixels, PixelsAccessRgba, blend_alpha, blend_linear_dodge, blend_screen},
@@ -14,6 +10,11 @@ use spitfire_glow::{
     renderer::{GlowBlending, GlowTextureFiltering},
 };
 use vek::Rgba;
+use winit::{
+    event::{Event, WindowEvent},
+    keyboard::{KeyCode, PhysicalKey},
+    window::Window,
+};
 
 fn main() {
     App::<Vertex>::default().run(State::default());
@@ -120,22 +121,22 @@ impl AppState<Vertex> for State {
         self.context.end_frame();
     }
 
-    fn on_event(&mut self, event: Event<()>, _: &mut Window) -> bool {
+    fn on_event(&mut self, event: Event<()>, _: Option<&Window>) -> bool {
         if let Event::WindowEvent {
-            event: WindowEvent::KeyboardInput { input, .. },
+            event: WindowEvent::KeyboardInput { event, .. },
             ..
         } = event
-            && let Some(key) = input.virtual_keycode
+            && let PhysicalKey::Code(key) = event.physical_key
         {
             match key {
-                VirtualKeyCode::Escape => {
+                KeyCode::Escape => {
                     return false;
                 }
-                VirtualKeyCode::Key1 => {
+                KeyCode::Digit1 => {
                     self.mode = Mode::Mandelbrot;
                     self.pixels = None;
                 }
-                VirtualKeyCode::Key2 => {
+                KeyCode::Digit2 => {
                     self.mode = Mode::Blending;
                     self.pixels = None;
                 }

@@ -1,5 +1,4 @@
 use fontdue::Font;
-use glutin::{event::Event, window::Window};
 use spitfire_draw::{
     context::DrawContext,
     text::Text,
@@ -11,6 +10,7 @@ use spitfire_glow::{
     renderer::GlowBlending,
 };
 use spitfire_input::*;
+use winit::{event::Event, window::Window};
 
 fn main() {
     App::<Vertex>::default().run(State::new());
@@ -85,7 +85,7 @@ impl AppState<Vertex> for State {
         self.draw.end_frame();
     }
 
-    fn on_event(&mut self, event: Event<()>, _: &mut Window) -> bool {
+    fn on_event(&mut self, event: Event<()>, _: Option<&Window>) -> bool {
         if let Event::WindowEvent { event, .. } = event {
             self.detector.window_detect(&mut self.input, &event);
             if let Some(action) = self.detector.try_consume() {
