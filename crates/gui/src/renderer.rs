@@ -78,7 +78,7 @@ impl GuiRenderer<'_> {
                                         .tint(tint)
                                         .size(size)
                                         .position(position)
-                                        .blending(GlowBlending::Alpha)
+                                        .blending(GlowBlending::AlphaOver)
                                         .screen_space(true)
                                         .draw(self.draw, self.graphics);
                                 }
@@ -101,7 +101,7 @@ impl GuiRenderer<'_> {
                                         .size(size)
                                         .position(position)
                                         .pivot(0.5.into())
-                                        .blending(GlowBlending::Alpha)
+                                        .blending(GlowBlending::AlphaOver)
                                         .margins_source(NineSliceMargins {
                                             left: frame.source.left,
                                             right: frame.source.right,
@@ -195,7 +195,7 @@ impl GuiRenderer<'_> {
                                     .tint(tint)
                                     .size(size)
                                     .position(position)
-                                    .blending(GlowBlending::Alpha)
+                                    .blending(GlowBlending::AlphaOver)
                                     .screen_space(true)
                                     .draw(self.draw, self.graphics);
                                 }
@@ -222,7 +222,7 @@ impl GuiRenderer<'_> {
                                     .size(size)
                                     .position(position)
                                     .pivot(0.5.into())
-                                    .blending(GlowBlending::Alpha)
+                                    .blending(GlowBlending::AlphaOver)
                                     .margins_source(NineSliceMargins {
                                         left: frame.source.left,
                                         right: frame.source.right,
@@ -279,6 +279,7 @@ impl GuiRenderer<'_> {
                         .position(Vec2::new(rect.left, rect.top))
                         .width(rect.width())
                         .height(rect.height())
+                        .blending(GlowBlending::AlphaOver)
                         .screen_space(true)
                         .draw(self.draw, self.graphics);
                 }

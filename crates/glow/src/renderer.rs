@@ -48,19 +48,29 @@ pub enum GlowBlending {
     #[default]
     None,
     Alpha,
+    /// Like `Alpha`, but the alpha channel follows the over operator, so a half transparent
+    /// draw over an opaque frame keeps the frame opaque.
+    AlphaOver,
     Multiply,
     Additive,
     PremultipliedAlpha,
 }
 
 impl GlowBlending {
-    pub fn into_gl(self) -> Option<(u32, u32)> {
+    /// [source rgb, destination rgb, source alpha, destination alpha]
+    pub fn into_gl(self) -> Option<[u32; 4]> {
         match self {
             Self::None => None,
-            Self::Alpha => Some((SRC_ALPHA, ONE_MINUS_SRC_ALPHA)),
-            Self::Multiply => Some((DST_COLOR, ZERO)),
-            Self::Additive => Some((ONE, ONE)),
-            Self::PremultipliedAlpha => Some((ONE, ONE_MINUS_SRC_ALPHA)),
+            Self::Alpha => Some([
+                SRC_ALPHA,
+                ONE_MINUS_SRC_ALPHA,
+                SRC_ALPHA,
+                ONE_MINUS_SRC_ALPHA,
+            ]),
+            Self::AlphaOver => Some([SRC_ALPHA, ONE_MINUS_SRC_ALPHA, ONE, ONE_MINUS_SRC_ALPHA]),
+            Self::Multiply => Some([DST_COLOR, ZERO, DST_COLOR, ZERO]),
+            Self::Additive => Some([ONE, ONE, ONE, ONE]),
+            Self::PremultipliedAlpha => Some([ONE, ONE_MINUS_SRC_ALPHA, ONE, ONE_MINUS_SRC_ALPHA]),
         }
     }
 }
@@ -129,8 +139,8 @@ pub struct GlowBatch {
     pub uniforms: HashMap<Cow<'static, str>, GlowUniformValue>,
     /// [(texture object, texture target, min filter, mag filter)?]
     pub textures: Vec<(Texture, u32, i32, i32)>,
-    /// (source, destination)?
-    pub blending: Option<(u32, u32)>,
+    /// [source rgb, destination rgb, source alpha, destination alpha]?
+    pub blending: Option<[u32; 4]>,
     /// [x, y, width, height]?
     pub scissor: Option<[i32; 4]>,
     pub wireframe: bool,
@@ -158,13 +168,7 @@ impl GlowBatch {
                     .unwrap_or(true);
                 context.use_program(Some(program));
                 for (name, value) in &self.uniforms {
-                    if changed
-                        || prev
-                            .uniforms
-                            .get(name)
-                            .map(|v| value != v)
-                            .unwrap_or(true)
-                    {
+                    if changed || prev.uniforms.get(name).map(|v| value != v).unwrap_or(true) {
                         let location = context.get_uniform_location(program, name.as_ref());
                         if let Some(location) = location {
                             match value {
@@ -229,9 +233,15 @@ impl GlowBatch {
                 }
             }
             if self.blending != prev.blending {
-                if let Some((source, destination)) = self.blending {
+                if let Some([source, destination, source_alpha, destination_alpha]) = self.blending
+                {
                     context.enable(BLEND);
-                    context.blend_func(source, destination);
+                    context.blend_func_separate(
+                        source,
+                        destination,
+                        source_alpha,
+                        destination_alpha,
+                    );
                 } else {
                     context.disable(BLEND);
                 }
@@ -413,11 +423,33 @@ where
             STREAM_DRAW,
         );
         let mut prev = GlowBatch::default();
+        let mut bound_targets = Vec::new();
         for (batch, range) in stream.batches().iter().cloned() {
             let batch = batch.into();
             batch.draw::<V>(self.context, mesh.vertex_array, range, &prev);
+            for (index, (_, target, _, _)) in batch.textures.iter().enumerate() {
+                if index >= bound_targets.len() {
+                    bound_targets.push(*target);
+                } else {
+                    bound_targets[index] = *target;
+                }
+            }
             prev = batch;
         }
+        unbind_textures(self.context, &bound_targets);
         Ok(())
+    }
+}
+
+/// A texture that stays bound after a pass can be the render target of a later pass.
+/// A shader of that later pass can have a sampler that it does not use on that unit.
+/// WebGL then rejects the draw with a feedback loop error, and the pass draws nothing.
+fn unbind_textures(context: &Context, targets: &[u32]) {
+    unsafe {
+        for (index, target) in targets.iter().enumerate() {
+            context.active_texture(TEXTURE0 + index as u32);
+            context.bind_texture(*target, None);
+        }
+        context.active_texture(TEXTURE0);
     }
 }

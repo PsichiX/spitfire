@@ -54,6 +54,11 @@ pub trait AppState<V: GlowVertexAttribs> {
 
     fn on_redraw(&mut self, graphics: &mut Graphics<V>, control: &mut AppControl) {}
 
+    /// True keeps the last presented frame: no clear, no draw and no buffer swap this frame.
+    fn skip_redraw(&mut self) -> bool {
+        false
+    }
+
     /// Gets each window event loop event. A headless app has no window and sends no events.
     fn on_event(&mut self, event: Event<()>, window: Option<&Window>) -> bool {
         true
@@ -73,6 +78,7 @@ pub struct AppConfig {
     pub double_buffer: Option<bool>,
     pub hardware_acceleration: Option<bool>,
     pub refresh_on_event: bool,
+    pub max_pixel_ratio: Option<f64>,
     pub color: [f32; 4],
 }
 
@@ -90,6 +96,7 @@ impl Default for AppConfig {
             double_buffer: Some(true),
             hardware_acceleration: Some(true),
             refresh_on_event: false,
+            max_pixel_ratio: None,
             color: [1.0, 1.0, 1.0, 1.0],
         }
     }
@@ -151,6 +158,11 @@ impl AppConfig {
         self
     }
 
+    pub fn max_pixel_ratio(mut self, v: Option<f64>) -> Self {
+        self.max_pixel_ratio = v;
+        self
+    }
+
     pub fn color(mut self, v: impl Into<[f32; 4]>) -> Self {
         self.color = v.into();
         self
@@ -201,20 +213,29 @@ impl<V: GlowVertexAttribs> App<V> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+const SKIPPED_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(16);
+
 /// Renders one frame of the state into the current framebuffer.
+/// Returns false when the state skips the frame. `force` renders even then.
 fn render_frame<V: GlowVertexAttribs, S: AppState<V>>(
     graphics: &mut Graphics<V>,
     state: &mut S,
     control: &mut AppControl,
     width: u32,
     height: u32,
-) {
+    force: bool,
+) -> bool {
+    if state.skip_redraw() && !force {
+        return false;
+    }
     graphics.state.main_camera.screen_size.x = width as _;
     graphics.state.main_camera.screen_size.y = height as _;
     let _ = graphics.prepare_frame(true);
     state.on_redraw(graphics, control);
     let _ = graphics.draw();
     graphics.resolve_capture(SCREEN_CAPTURE_TARGET);
+    true
 }
 
 fn window_attributes(config: &AppConfig) -> WindowAttributes {
@@ -377,9 +398,11 @@ fn screen_canvas() -> HtmlCanvasElement {
 
 #[cfg(target_arch = "wasm32")]
 struct WebTracking {
+    pixel_ratio: f64,
     pointer_position: Rc<Cell<Option<LogicalPosition<f64>>>>,
     fullscreen_request: Rc<Cell<Option<bool>>>,
     fullscreen_changed: Rc<Cell<bool>>,
+    last_frame_time: Option<f64>,
 }
 
 struct AppRunner<V: GlowVertexAttribs, S: AppState<V>> {
@@ -400,7 +423,7 @@ impl<V: GlowVertexAttribs, S: AppState<V>> AppRunner<V, S> {
     }
 
     fn control_flow(&self) -> ControlFlow {
-        if self.config.refresh_on_event {
+        if self.config.refresh_on_event || cfg!(target_arch = "wasm32") {
             ControlFlow::Wait
         } else {
             ControlFlow::Poll
@@ -458,22 +481,41 @@ impl<V: GlowVertexAttribs, S: AppState<V>> AppRunner<V, S> {
             return;
         };
         let (width, height) = (self.control.width, self.control.height);
-        render_frame(
+        if render_frame(
             &mut frame.graphics,
             &mut self.state,
             &mut self.control,
             width,
             height,
-        );
-        let _ = frame.gl_surface.swap_buffers(&frame.gl_context);
+            false,
+        ) {
+            let _ = frame.gl_surface.swap_buffers(&frame.gl_context);
+        } else {
+            // A skipped frame has no swap, so vsync does not hold the loop. Without this sleep it spins a CPU core.
+            std::thread::sleep(SKIPPED_FRAME_TIME);
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
     fn redraw(&mut self) {
-        let (Some(frame), Some(web)) = (self.frame.as_mut(), self.web.as_ref()) else {
+        let (Some(frame), Some(web)) = (self.frame.as_mut(), self.web.as_mut()) else {
             return;
         };
         let dom_window = web_sys::window().unwrap();
+        if let Some(max_fps) = self.control.max_fps
+            && let Some(performance) = dom_window.performance()
+        {
+            let now = performance.now();
+            let interval = 900.0 / max_fps.max(1.0) as f64;
+            if web
+                .last_frame_time
+                .is_some_and(|last| now - last < interval)
+            {
+                frame.window.request_redraw();
+                return;
+            }
+            web.last_frame_time = Some(now);
+        }
         let width = dom_window.inner_width().unwrap().as_f64().unwrap().max(1.0);
         let height = dom_window
             .inner_height()
@@ -495,17 +537,33 @@ impl<V: GlowVertexAttribs, S: AppState<V>> AppRunner<V, S> {
             control.fullscreen = is_document_fullscreen();
         }
         let scale_factor = frame.window.scale_factor();
+        web.pixel_ratio = self
+            .control
+            .max_pixel_ratio
+            .map_or(scale_factor, |limit| scale_factor.min(limit));
         let _ = frame
             .window
             .request_inner_size(LogicalSize::new(width, height));
+        let buffer_width = (width * web.pixel_ratio).round().max(1.0) as u32;
+        let buffer_height = (height * web.pixel_ratio).round().max(1.0) as u32;
+        // Since winit 0.29 the canvas gets only a CSS size. Without this the drawing buffer stays 300x150.
+        let canvas = screen_canvas();
+        let resized = canvas.width() != buffer_width || canvas.height() != buffer_height;
+        if resized {
+            canvas.set_width(buffer_width);
+            canvas.set_height(buffer_height);
+        }
         render_frame(
             &mut frame.graphics,
             &mut self.state,
             &mut self.control,
-            (width * scale_factor) as _,
-            (height * scale_factor) as _,
+            buffer_width,
+            buffer_height,
+            resized,
         );
-        frame.window.request_redraw();
+        if !self.config.refresh_on_event {
+            frame.window.request_redraw();
+        }
     }
 }
 
@@ -530,11 +588,15 @@ impl<V: GlowVertexAttribs, S: AppState<V>> ApplicationHandler for AppRunner<V, S
             #[cfg(target_arch = "wasm32")]
             {
                 self.web = Some(WebTracking {
+                    pixel_ratio: frame.window.scale_factor(),
                     pointer_position: track_pointer_position(screen_canvas()),
                     fullscreen_request: request_fullscreen_on_gesture(self.control.fullscreen),
                     fullscreen_changed: track_fullscreen_change(),
+                    last_frame_time: None,
                 });
             }
+            #[cfg(target_arch = "wasm32")]
+            frame.window.request_redraw();
             self.frame = Some(frame);
         }
         event_loop.set_control_flow(self.control_flow());
@@ -571,12 +633,22 @@ impl<V: GlowVertexAttribs, S: AppState<V>> ApplicationHandler for AppRunner<V, S
             }
             #[cfg(target_arch = "wasm32")]
             WindowEvent::CursorMoved { position, .. } => {
-                if let (Some(frame), Some(web)) = (self.frame.as_ref(), self.web.as_ref())
+                if let Some(web) = self.web.as_ref()
                     && let Some(pointer) = web.pointer_position.get()
                 {
-                    *position = pointer.to_physical(frame.window.scale_factor());
+                    *position = pointer.to_physical(web.pixel_ratio);
                 }
             }
+            #[cfg(target_arch = "wasm32")]
+            WindowEvent::Touch(touch) => {
+                if let (Some(frame), Some(web)) = (self.frame.as_ref(), self.web.as_ref()) {
+                    let factor = web.pixel_ratio / frame.window.scale_factor();
+                    touch.location.x *= factor;
+                    touch.location.y *= factor;
+                }
+            }
+            #[cfg(target_arch = "wasm32")]
+            WindowEvent::RedrawRequested => self.redraw(),
             _ => {}
         }
         self.forward_event(event_loop, Event::WindowEvent { window_id, event });
@@ -594,8 +666,16 @@ impl<V: GlowVertexAttribs, S: AppState<V>> ApplicationHandler for AppRunner<V, S
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         event_loop.set_control_flow(self.control_flow());
         #[cfg(not(target_arch = "wasm32"))]
-        self.sync_window();
-        self.redraw();
+        {
+            self.sync_window();
+            self.redraw();
+        }
+        #[cfg(target_arch = "wasm32")]
+        if self.config.refresh_on_event
+            && let Some(frame) = self.frame.as_ref()
+        {
+            frame.window.request_redraw();
+        }
         if self.control.close_requested {
             event_loop.exit();
         }
@@ -668,11 +748,18 @@ impl<V: GlowVertexAttribs> HeadlessApp<V> {
                 }
             }
             let (width, height) = (control.width, control.height);
-            render_frame(&mut graphics, &mut state, &mut control, width, height);
+            let rendered = render_frame(
+                &mut graphics,
+                &mut state,
+                &mut control,
+                width,
+                height,
+                false,
+            );
             if let Some(context) = graphics.context() {
                 unsafe { context.flush() };
             }
-            if self.config.vsync {
+            if self.config.vsync || !rendered {
                 std::thread::sleep(FRAME_TIME.saturating_sub(frame_start.elapsed()));
             }
         }
@@ -895,6 +982,8 @@ pub struct AppControl {
     dirty_maximized: bool,
     fullscreen: bool,
     dirty_fullscreen: bool,
+    max_pixel_ratio: Option<f64>,
+    max_fps: Option<f32>,
     pub close_requested: bool,
 }
 
@@ -913,8 +1002,28 @@ impl AppControl {
             dirty_maximized: false,
             fullscreen: config.fullscreen,
             dirty_fullscreen: false,
+            max_pixel_ratio: config.max_pixel_ratio,
+            max_fps: None,
             close_requested: false,
         }
+    }
+
+    pub fn max_pixel_ratio(&self) -> Option<f64> {
+        self.max_pixel_ratio
+    }
+
+    /// The web canvas buffer uses at most this device pixel ratio. Native windows ignore it.
+    pub fn set_max_pixel_ratio(&mut self, max_pixel_ratio: Option<f64>) {
+        self.max_pixel_ratio = max_pixel_ratio;
+    }
+
+    pub fn max_fps(&self) -> Option<f32> {
+        self.max_fps
+    }
+
+    /// The web loop skips animation frames to stay at or below this rate. Native windows ignore it.
+    pub fn set_max_fps(&mut self, max_fps: Option<f32>) {
+        self.max_fps = max_fps;
     }
 
     pub fn position(&self) -> (i32, i32) {
